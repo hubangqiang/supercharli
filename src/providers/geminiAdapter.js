@@ -1,4 +1,5 @@
 const { buildProfileSystemPrompt } = require("./profilePrompt");
+const { buildRequestContextPrompt } = require("./requestContextPrompt");
 
 class GeminiAdapter {
   constructor(options) {
@@ -10,9 +11,12 @@ class GeminiAdapter {
   async generate(model, context) {
     const url = `${this.baseURL}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
     const profilePrompt = buildProfileSystemPrompt(context.personaProfile);
+    const requestContextPrompt = buildRequestContextPrompt(context);
+
     const composed = [
       "You are SuperCharli response engine. Treat profile/role/personality/background constraints as mandatory behavior rules.",
       profilePrompt,
+      requestContextPrompt,
       `User request:\n${context.text}`,
     ]
       .filter(Boolean)

@@ -6,7 +6,7 @@
   "scripts": {
     "init:user": "node scripts/init-supercharli-user.js",
     "demo": "node src/runtime/demoRunner.js",
-    "test": "node test/runtimeCore.test.js && node test/snapshot.test.js && node test/providerAcceptance.test.js && node test/profilePrompt.test.js && node test/daemon.test.js",
+    "test": "node test/runtimeCore.test.js && node test/snapshot.test.js && node test/providerAcceptance.test.js && node test/profilePrompt.test.js && node test/requestContextPrompt.test.js && node test/daemon.test.js",
     "backup": "node scripts/backup-state.js",
     "restore": "node scripts/restore-state.js",
     "daemon:start": "node scripts/supercharli-daemon.js start",

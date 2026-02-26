@@ -1,4 +1,5 @@
 const { buildProfileSystemPrompt } = require("./profilePrompt");
+const { buildRequestContextPrompt } = require("./requestContextPrompt");
 
 class AnthropicAdapter {
   constructor(options) {
@@ -9,6 +10,8 @@ class AnthropicAdapter {
 
   async generate(model, context) {
     const profilePrompt = buildProfileSystemPrompt(context.personaProfile);
+    const requestContextPrompt = buildRequestContextPrompt(context);
+
     const payload = {
       model,
       max_tokens: 600,
@@ -18,6 +21,7 @@ class AnthropicAdapter {
         "You are SuperCharli response engine. Be concise and practical.",
         "Treat profile/role/personality/background constraints as mandatory behavior rules.",
         profilePrompt,
+        requestContextPrompt,
       ]
         .filter(Boolean)
         .join("\n\n"),

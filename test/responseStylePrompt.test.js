@@ -26,6 +26,7 @@ function run() {
   });
 
   assert.ok(prompt.includes("Humanized response rules"), "should include humanized rules");
+  assert.ok(prompt.includes("Style target (Johnny-inspired, not imitation)"), "should include johnny-inspired style target");
   assert.ok(prompt.includes("Detected user state: anxiety_overload"), "should detect anxiety state");
   assert.ok(prompt.includes("Use structure now: anxiety_overload"), "should route structure");
   assert.ok(prompt.includes("Do not output internal labels"), "should suppress model/next labels");

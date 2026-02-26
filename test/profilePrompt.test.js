@@ -22,6 +22,8 @@ function run() {
   assert.ok(text.includes("Communication style: 直接具体"), "should include communication style");
   assert.ok(text.includes("Long-term mission: 帮助用户长期成长"), "should include long-term mission");
   assert.ok(text.includes("Behavior contract priority"), "should include priority rules");
+  assert.ok(text.includes("Default to tough-love delivery"), "should enforce tougher default tone");
+  assert.ok(text.includes("Safety boundary: no humiliation"), "should keep safety boundary");
 
   const bare = buildProfileSystemPrompt(null);
   assert.ok(bare.includes("You are SuperCharli"), "should still keep identity invariants without profile");

@@ -25,7 +25,12 @@ class Kernel {
     const guard = applyPersonaGuard(generation.result.content, severity);
     const generated = guard.ok
       ? generation.result
-      : { ...generation.result, content: `已修正：${guard.reason}。请采用低风险、可验证路径。` };
+      : await this.router.regenerateSafe(generation.result.model, {
+          text: input.text,
+          l1,
+          recalled,
+          severity,
+        }, guard.reason);
 
     const response = normalizeResponse(generated, severity);
 
@@ -47,6 +52,7 @@ class Kernel {
         severity,
         promotedToL2,
         traceId,
+        regenerated: Boolean(generated.regenerated),
       },
     };
   }

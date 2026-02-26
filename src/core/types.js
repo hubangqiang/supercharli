@@ -26,6 +26,7 @@
  *   fallbackUsed: boolean,
  *   severity: SeverityMode,
  *   promotedToL2: boolean,
+ *   regenerated: boolean,
  *   traceId: string
  * }} TurnMeta
  */

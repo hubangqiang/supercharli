@@ -4,6 +4,7 @@
   "private": true,
   "description": "SuperCharli runtime core skeleton",
   "scripts": {
-    "demo": "node src/runtime/demoRunner.js"
+    "demo": "node src/runtime/demoRunner.js",
+    "test": "node test/runtimeCore.test.js"
   }
 }

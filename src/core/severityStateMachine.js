@@ -12,27 +12,42 @@ class SeverityStateMachine {
   }
 
   resolve(input) {
+    return this.resolveDetailed(input).severity;
+  }
+
+  resolveDetailed(input) {
     const sessionId = input.sessionId || "default";
     const observed = this._detect(input);
     const now = this.clock();
 
-    const current = this.sessions.get(sessionId) || { severity: "normal", expiresAt: null };
+    const previous = this.sessions.get(sessionId) || { severity: "normal", expiresAt: null };
 
-    if (this._rank(observed) > this._rank(current.severity)) {
-      const next = this._escalateTo(observed, now);
-      this.sessions.set(sessionId, next);
-      return next.severity;
+    let next = previous;
+    let reason = "hold-current";
+
+    if (this._rank(observed) > this._rank(previous.severity)) {
+      next = this._refresh(observed, now);
+      reason = `escalate-by-signal:${observed}`;
+    } else if (observed === previous.severity) {
+      next = this._refresh(previous.severity, now);
+      reason = `refresh-ttl:${observed}`;
+    } else {
+      next = this._coolDown(previous, observed, now);
+      if (next.severity !== previous.severity) {
+        reason = `ttl-deescalate:${previous.severity}->${next.severity}`;
+      }
     }
 
-    if (observed === current.severity) {
-      const refreshed = this._refresh(current.severity, now);
-      this.sessions.set(sessionId, refreshed);
-      return refreshed.severity;
-    }
+    this.sessions.set(sessionId, next);
 
-    const cooled = this._coolDown(current, observed, now);
-    this.sessions.set(sessionId, cooled);
-    return cooled.severity;
+    return {
+      sessionId,
+      previousSeverity: previous.severity,
+      severity: next.severity,
+      observedSeverity: observed,
+      reason,
+      expiresAt: next.expiresAt,
+    };
   }
 
   getState(sessionId) {
@@ -46,10 +61,6 @@ class SeverityStateMachine {
     const oneStep = ORDER[Math.max(0, this._rank(current.severity) - 1)];
     const target = ORDER[Math.max(this._rank(observed), this._rank(oneStep))];
     return this._refresh(target, now);
-  }
-
-  _escalateTo(severity, now) {
-    return this._refresh(severity, now);
   }
 
   _refresh(severity, now) {

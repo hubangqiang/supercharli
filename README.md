@@ -9,7 +9,7 @@ This repository separates two layers clearly:
 ## Current Status
 - Principles and constitutions are established.
 - V1 planning templates are in place.
-- V1 runtime core and local persistent memory baseline are implemented under `src/`.
+- V1 runtime core, local persistent memory, severity state machine, and fallback chain are implemented under `src/`.
 
 ## Repo Structure
 - `persona.toml`: machine-readable personality baseline.
@@ -38,6 +38,13 @@ This repository separates two layers clearly:
 By default, demo uses local SQLite memory at `data/supercharli.db`.
 You can override with:
 - `SUPERCHARLI_DB_PATH=/absolute/path/to/memory.db npm run demo`
+
+## Runtime Highlights
+- Route strategy: fast/deep route with explicit route reason.
+- Fallback chain: retry primary once -> switch secondary -> minimal-safe response mode.
+- Safety: persona guard with regeneration on certainty/risk violations.
+- Memory: local L1/L2 with auto-promotion and restart persistence.
+- Telemetry: per-turn stage events and counters for fallback/safety/latency tracking.
 
 ## Open Source Governance
 - `CONTRIBUTING.md`: contribution workflow and quality gate.

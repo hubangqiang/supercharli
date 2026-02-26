@@ -12,3 +12,5 @@ This project follows Semantic Versioning.
 - SQLite-based local memory engine for persistent L1/L2 memory across restarts.
 - Severity state machine with session-level escalation and TTL-based de-escalation.
 - Runtime tests covering fallback, persona regeneration, memory persistence, and severity transitions.
+- Structured route metadata and multi-level fallback chain (retry -> secondary -> minimal-safe).
+- Lightweight telemetry component for per-turn stage logs and runtime counters.

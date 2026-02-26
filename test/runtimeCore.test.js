@@ -5,17 +5,26 @@ const { Kernel } = require("../src/core/kernel");
 const { SeverityStateMachine } = require("../src/core/severityStateMachine");
 const { InMemoryMemoryEngine } = require("../src/memory/inMemoryMemoryEngine");
 const { SQLiteMemoryEngine } = require("../src/memory/sqliteMemoryEngine");
+const { Telemetry } = require("../src/observability/telemetry");
 const { BasicModelRouter } = require("../src/router/basicModelRouter");
 
 async function runCoreFlowChecks() {
-  const kernel = new Kernel(new InMemoryMemoryEngine(), new BasicModelRouter());
+  const telemetry = new Telemetry();
+  const kernel = new Kernel(new InMemoryMemoryEngine(), new BasicModelRouter(), undefined, telemetry);
 
   const deep = await kernel.runTurn({ sessionId: "t1", text: "请做多步权衡分析" });
   assert.strictEqual(deep.meta.route, "deep", "deep route should be selected");
+  assert.strictEqual(deep.meta.routeReason, "complex-planning-signal");
 
   const fallback = await kernel.runTurn({ sessionId: "t2", text: "force-error" });
   assert.strictEqual(fallback.meta.fallbackUsed, true, "fallback should be used");
-  assert.strictEqual(fallback.meta.model, "safe-fallback", "fallback model should serve response");
+  assert.strictEqual(fallback.meta.fallbackLevel, 2, "secondary model fallback should be used");
+  assert.strictEqual(fallback.meta.model, "safe-secondary", "secondary model should serve response");
+
+  const minimalSafe = await kernel.runTurn({ sessionId: "t2", text: "force-all-fail" });
+  assert.strictEqual(minimalSafe.meta.fallbackLevel, 3, "minimal safe mode should activate");
+  assert.strictEqual(minimalSafe.meta.responseMode, "minimal-safe");
+  assert.strictEqual(minimalSafe.response.uncertainty, "模型链路暂时不可用，以下建议为保守降级方案。");
 
   const severe = await kernel.runTurn({ sessionId: "t3", text: "high-risk", riskSignals: ["guardrail-risk"] });
   assert.strictEqual(severe.meta.severity, "s3", "s3 should be triggered");
@@ -30,6 +39,9 @@ async function runCoreFlowChecks() {
   assert.strictEqual(p1.meta.promotedToL2, false);
   assert.strictEqual(p2.meta.promotedToL2, false);
   assert.strictEqual(p3.meta.promotedToL2, true, "third repeat should promote to L2");
+
+  assert.ok(telemetry.getEvents((e) => e.stage === "done").length >= 1, "telemetry should capture lifecycle");
+  assert.ok(telemetry.getCount("turn_count") >= 1, "telemetry counters should update");
 }
 
 function runSeverityStateChecks() {
@@ -57,8 +69,9 @@ function runSeverityStateChecks() {
   assert.strictEqual(downToS1, "s1", "should step down to s1 after s2 ttl");
 
   now += 10;
-  const downToNormal = machine.resolve({ sessionId, text: "普通对话" });
-  assert.strictEqual(downToNormal, "normal", "should return to normal after s1 ttl");
+  const downToNormal = machine.resolveDetailed({ sessionId, text: "普通对话" });
+  assert.strictEqual(downToNormal.severity, "normal", "should return to normal after s1 ttl");
+  assert.ok(downToNormal.reason.includes("ttl-deescalate"), "de-escalation reason should be explicit");
 
   const s2Again = machine.resolve({ sessionId, text: "连续失败", riskSignals: ["repeated-failure"] });
   assert.strictEqual(s2Again, "s2", "should re-escalate when new signal appears");

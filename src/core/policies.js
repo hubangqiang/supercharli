@@ -29,6 +29,7 @@ function normalizeResponse(generated, severity) {
     nextStep: "在 30 分钟内完成一个最小动作，并记录结果。",
     completionSignal: "你能明确说出：已完成动作 + 下一步时间点。",
     fallbackOption: "如果阻力大，先做 10 分钟版本并保留连续性。",
+    uncertainty: generated.uncertainty,
   };
 }
 

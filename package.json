@@ -5,8 +5,12 @@
   "description": "SuperCharli runtime core skeleton",
   "scripts": {
     "demo": "node src/runtime/demoRunner.js",
-    "test": "node test/runtimeCore.test.js && node test/snapshot.test.js && node test/providerAcceptance.test.js",
+    "test": "node test/runtimeCore.test.js && node test/snapshot.test.js && node test/providerAcceptance.test.js && node test/daemon.test.js",
     "backup": "node scripts/backup-state.js",
-    "restore": "node scripts/restore-state.js"
+    "restore": "node scripts/restore-state.js",
+    "daemon:start": "node scripts/supercharli-daemon.js start",
+    "daemon:stop": "node scripts/supercharli-daemon.js stop",
+    "daemon:status": "node scripts/supercharli-daemon.js status",
+    "cli": "node scripts/supercharli-cli.js"
   }
 }

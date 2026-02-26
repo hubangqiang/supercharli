@@ -31,6 +31,7 @@
 - `docs/guide/github-publish-guide.zh-CN.md`
 - `docs/guide/local-backup-restore.zh-CN.md`
 - `docs/guide/model-provider-config.zh-CN.md`
+- `docs/guide/daemon-cli.zh-CN.md`
 
 ## 4. 开源治理（Root）
 - `README.md`

@@ -9,7 +9,7 @@ This repository separates two layers clearly:
 ## Current Status
 - Principles and constitutions are established.
 - V1 planning templates are in place.
-- V1 runtime core, local persistent memory, severity state machine, fallback chain, and backup/restore baseline are implemented under `src/`.
+- V1 runtime core, local persistent memory, severity state machine, fallback chain, backup/restore baseline, and daemon CLI baseline are implemented under `src/`.
 
 ## Repo Structure
 - `persona.toml`: machine-readable personality baseline.
@@ -46,6 +46,16 @@ You can override with:
 - Memory: local L1/L2 with auto-promotion and restart persistence.
 - Telemetry: per-turn stage events and counters for fallback/safety/latency tracking.
 - Provider adapters: DeepSeek / Gemini / Anthropic with unified `provider:model` config.
+
+## Daemon + CLI
+- Start daemon:
+  - `npm run daemon:start`
+- Check status:
+  - `npm run daemon:status`
+- Interactive chat:
+  - `npm run cli -- --session main`
+- Guide:
+  - `docs/guide/daemon-cli.zh-CN.md`
 
 ## Portability
 - Create snapshot:

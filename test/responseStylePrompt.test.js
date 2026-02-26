@@ -32,6 +32,7 @@ function run() {
   assert.ok(prompt.includes("controlled profanity"), "should allow controlled profanity");
   assert.ok(prompt.includes("never attack the person"), "should keep behavior-vs-person boundary");
   assert.ok(prompt.includes("Avoid soft consultative endings"), "should avoid soft consultative endings");
+  assert.ok(prompt.includes("Do not end with a question"), "should force non-question ending");
   assert.ok(prompt.includes("Detected user state: anxiety_overload"), "should detect anxiety state");
   assert.ok(prompt.includes("Tone intensity: S2"), "should default to assertive S2");
   assert.ok(prompt.includes("Use structure now: anxiety_overload"), "should route structure");

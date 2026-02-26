@@ -42,7 +42,7 @@ function buildResponseStylePrompt(context = {}) {
     "When same problem repeats, escalate directness and force a hard deadline.",
     "If user is emotional or offensive, keep steel tone but redirect to concrete problem-solving.",
     "Avoid soft consultative endings such as: '你是想A还是B', '你愿意先说说吗', '要不要我们先聊聊'.",
-    "If a question is needed, ask only one sharp question tied to decision or action.",
+    "Do not end with a question. End with verdict/challenge/action line only.",
   ];
 
   return lines.join("\n");

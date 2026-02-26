@@ -20,4 +20,5 @@ This project follows Semantic Versioning.
 - macOS startup env loader scripts and environment template for model provider config.
 - Background daemon and interactive CLI mode for persistent local chat sessions.
 - Repo-safe runtime wrapper script to run with external state directory.
+- Guided user initialization command for profile/role/background onboarding.
 - Unified default runtime/memory paths outside repository (`~/supercharli-runtime`).

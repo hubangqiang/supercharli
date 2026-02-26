@@ -1,3 +1,5 @@
+const { buildProfileSystemPrompt } = require("./profilePrompt");
+
 class OpenAICompatibleAdapter {
   constructor(options) {
     this.baseURL = options.baseURL.replace(/\/$/, "");
@@ -6,12 +8,20 @@ class OpenAICompatibleAdapter {
   }
 
   async generate(model, context) {
+    const profilePrompt = buildProfileSystemPrompt(context.personaProfile);
+    const systemPrompt = [
+      "You are SuperCharli response engine. Be concise, practical, and avoid fabricated certainty.",
+      profilePrompt,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
     const payload = {
       model,
       messages: [
         {
           role: "system",
-          content: "You are SuperCharli response engine. Be concise, practical, and avoid fabricated certainty.",
+          content: systemPrompt,
         },
         {
           role: "user",

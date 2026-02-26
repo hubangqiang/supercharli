@@ -24,6 +24,7 @@
 - `docs/plans/readiness-report.v1.md`
 
 ## 3. 流程层（Guide）
+- `docs/guide/getting-started.zh-CN.md`
 - `docs/guide/project-overview.zh-CN.md`
 - `docs/guide/development-workflow.zh-CN.md`
 - `docs/guide/model-collaboration-contract.zh-CN.md`

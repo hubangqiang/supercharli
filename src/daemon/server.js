@@ -5,6 +5,7 @@ const { Kernel } = require("../core/kernel");
 const { SQLiteMemoryEngine } = require("../memory/sqliteMemoryEngine");
 const { Telemetry } = require("../observability/telemetry");
 const { BasicModelRouter } = require("../router/basicModelRouter");
+const { loadUserProfile } = require("../runtime/userProfile");
 
 function createDaemonServer(options = {}) {
   const socketPath = options.socketPath;
@@ -46,7 +47,7 @@ function createDaemonServer(options = {}) {
         }
 
         try {
-          const response = await handleRequest(message, kernel, telemetry);
+          const response = await handleRequest(message, kernel, telemetry, options.env || process.env);
           socket.write(`${JSON.stringify({ ok: true, data: response })}\n`);
         } catch (err) {
           socket.write(`${JSON.stringify({ ok: false, error: err.message || "unknown_error" })}\n`);
@@ -82,7 +83,7 @@ function createDaemonServer(options = {}) {
   return { start, stop, server };
 }
 
-async function handleRequest(message, kernel, telemetry) {
+async function handleRequest(message, kernel, telemetry, env) {
   const type = message.type;
   if (type === "ping") {
     return { type: "pong", ts: new Date().toISOString() };
@@ -98,6 +99,7 @@ async function handleRequest(message, kernel, telemetry) {
       text: message.text,
       complexity: message.complexity,
       riskSignals: message.riskSignals,
+      personaProfile: loadUserProfile(env),
     });
 
     return {

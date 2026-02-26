@@ -1,3 +1,5 @@
+const { buildProfileSystemPrompt } = require("./profilePrompt");
+
 class AnthropicAdapter {
   constructor(options) {
     this.baseURL = (options.baseURL || "https://api.anthropic.com").replace(/\/$/, "");
@@ -6,12 +8,18 @@ class AnthropicAdapter {
   }
 
   async generate(model, context) {
+    const profilePrompt = buildProfileSystemPrompt(context.personaProfile);
     const payload = {
       model,
       max_tokens: 600,
       temperature: 0.4,
       messages: [{ role: "user", content: context.text }],
-      system: "You are SuperCharli response engine. Be concise and practical.",
+      system: [
+        "You are SuperCharli response engine. Be concise and practical.",
+        profilePrompt,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
     };
 
     const controller = new AbortController();

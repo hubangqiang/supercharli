@@ -4,6 +4,17 @@
 - 用统一配置接入不同模型服务。
 - 模型与路由完全配置化，代码仓库不内置具体模型信息。
 
+## 推荐入口
+优先运行：
+```bash
+npm run init:user
+```
+
+它会在用户目录自动生成：
+- `~/.config/supercharli/charli.profile.json`
+- `~/.config/supercharli/providers.config.json`
+- `~/.config/supercharli/supercharli.env.sh`
+
 ## 配置方式（推荐）
 - 使用外部 JSON 配置文件（类似 OpenClaw 的配置驱动方式）：
   - 环境变量：`SUPERCHARLI_PROVIDER_CONFIG_FILE`
@@ -25,21 +36,13 @@
 
 ## 环境变量
 - `SUPERCHARLI_PROVIDER_CONFIG_FILE`: provider 配置文件路径
+- `SUPERCHARLI_PROFILE_FILE`: 用户人格/角色/背景文件路径
 - `SUPERCHARLI_MODEL_FAST|DEEP|SECONDARY`: 可选，覆盖 `routes`
 - 你在配置文件里定义的 `apiKeyEnv` 变量
 
 ## 默认行为
 - 未配置外部 provider 时，自动使用 `mock` provider，保证本地开发可用。
 - 路由命中未配置 provider 时，返回可解释错误并走回退链。
-
-## 快速配置
-1. 复制模板：
-   - `mkdir -p ~/.config/supercharli`
-   - `cp scripts/env/supercharli.env.example.sh ~/.config/supercharli/supercharli.env.sh`
-   - `cp scripts/env/providers.config.example.json ~/.config/supercharli/providers.config.json`
-2. 修改配置文件与 key。
-3. 临时生效：
-   - `source ~/.config/supercharli/supercharli.env.sh`
 
 ## 开机生效（macOS）
 - 安装 LaunchAgent：

@@ -44,6 +44,7 @@ class Kernel {
       l1,
       recalled,
       severity,
+      personaProfile: input.personaProfile,
     });
     this.telemetry.log({
       stage: "generate",
@@ -65,6 +66,7 @@ class Kernel {
             l1,
             recalled,
             severity,
+            personaProfile: input.personaProfile,
           },
           guard.reason,
         );

@@ -1,3 +1,5 @@
+const { buildProfileSystemPrompt } = require("./profilePrompt");
+
 class GeminiAdapter {
   constructor(options) {
     this.apiKey = options.apiKey;
@@ -7,8 +9,11 @@ class GeminiAdapter {
 
   async generate(model, context) {
     const url = `${this.baseURL}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+    const profilePrompt = buildProfileSystemPrompt(context.personaProfile);
+    const composed = [profilePrompt, `User request:\n${context.text}`].filter(Boolean).join("\n\n");
+
     const payload = {
-      contents: [{ parts: [{ text: context.text }] }],
+      contents: [{ parts: [{ text: composed }] }],
       generationConfig: { temperature: 0.4 },
     };
 

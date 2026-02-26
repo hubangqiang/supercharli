@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # SuperCharli provider config template (model-agnostic).
-# Usage:
-#   mkdir -p ~/.config/supercharli
-#   cp scripts/env/supercharli.env.example.sh ~/.config/supercharli/supercharli.env.sh
-#   cp scripts/env/providers.config.example.json ~/.config/supercharli/providers.config.json
-#   edit both files, then source ~/.config/supercharli/supercharli.env.sh
+# Recommended first step: run `npm run init:user`.
 
 # External provider config (OpenClaw-style: file-driven)
 export SUPERCHARLI_PROVIDER_CONFIG_FILE="$HOME/.config/supercharli/providers.config.json"
+
+# User profile (role/background/personality)
+export SUPERCHARLI_PROFILE_FILE="$HOME/.config/supercharli/charli.profile.json"
 
 # Provider keys referenced by providers.config.json(apiKeyEnv)
 export PRIMARY_PROVIDER_API_KEY=""

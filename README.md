@@ -11,6 +11,16 @@ This repository separates two layers clearly:
 - V1 planning templates are in place.
 - V1 runtime core, local persistent memory, severity state machine, fallback chain, backup/restore baseline, and daemon CLI baseline are implemented under `src/`.
 
+## New User Start
+- Guided initialization:
+  - `npm run init:user`
+- This creates your personal profile/config outside repository:
+  - `~/.config/supercharli/charli.profile.json`
+  - `~/.config/supercharli/providers.config.json`
+  - `~/.config/supercharli/supercharli.env.sh`
+- Guide:
+  - `docs/guide/getting-started.zh-CN.md`
+
 ## Repo Structure
 - `persona.toml`: machine-readable personality baseline.
 - `docs/principles/`: product and engineering constitutions.
@@ -22,22 +32,6 @@ This repository separates two layers clearly:
 - Keep product principles and engineering principles separate.
 - Do not implement beyond V1 scope unless scope document is updated first.
 - Preserve local memory sovereignty and stable identity across model switches.
-
-## Start Here
-1. Read `docs/index.zh-CN.md`.
-2. Read `docs/guide/project-overview.zh-CN.md`.
-3. Read `docs/guide/development-workflow.zh-CN.md`.
-4. Follow `docs/guide/model-collaboration-contract.zh-CN.md` for model-driven implementation.
-
-## Quick Start
-- Run demo:
-  - `npm run demo`
-- Run tests:
-  - `npm test`
-
-By default, demo uses local SQLite memory at `~/supercharli-runtime/data/supercharli.db`.
-You can override with:
-- `SUPERCHARLI_DB_PATH=/absolute/path/to/memory.db npm run demo`
 
 ## Runtime Highlights
 - Route strategy: fast/deep route with explicit route reason.

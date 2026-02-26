@@ -58,6 +58,10 @@ You can override with:
 ## Model Provider Config
 - Guide:
   - `docs/guide/model-provider-config.zh-CN.md`
+- Env template:
+  - `scripts/env/supercharli.env.example.sh`
+- macOS startup loader:
+  - `scripts/env/install-launchagent.sh`
 
 ## Open Source Governance
 - `CONTRIBUTING.md`: contribution workflow and quality gate.

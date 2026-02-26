@@ -17,3 +17,4 @@ This project follows Semantic Versioning.
 - Snapshot backup and restore scripts with manifest checksum verification.
 - Provider adapter layer for DeepSeek/Gemini/Anthropic with configurable model refs.
 - Acceptance tests for provider parsing, registry behavior, and router fallback with injected providers.
+- macOS startup env loader scripts and environment template for model provider config.

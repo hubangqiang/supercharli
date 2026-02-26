@@ -24,6 +24,23 @@
 - 未配置任何外部 key 时，系统自动使用 `mock` provider，保证本地可开发。
 - 外部 provider 未配置但被路由命中时，返回可解释错误并走回退链。
 
+## 快速配置
+1. 复制模板：
+   - `mkdir -p ~/.config/supercharli`
+   - `cp scripts/env/supercharli.env.example.sh ~/.config/supercharli/supercharli.env.sh`
+2. 填入你的 key 与模型。
+3. 临时生效：
+   - `source ~/.config/supercharli/supercharli.env.sh`
+
+## 开机生效（macOS）
+- 安装 LaunchAgent：
+  - `scripts/env/install-launchagent.sh ~/.config/supercharli/supercharli.env.sh`
+- 卸载 LaunchAgent：
+  - `scripts/env/uninstall-launchagent.sh`
+- 验证：
+  - `launchctl getenv SUPERCHARLI_MODEL_FAST`
+  - `launchctl getenv ANTHROPIC_BASE_URL`
+
 ## 示例
 ```bash
 export DEEPSEEK_API_KEY="..."

@@ -1,0 +1,9 @@
+{
+  "name": "supercharli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SuperCharli runtime core skeleton",
+  "scripts": {
+    "demo": "node src/runtime/demoRunner.js"
+  }
+}

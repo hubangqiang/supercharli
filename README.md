@@ -9,7 +9,7 @@ This repository separates two layers clearly:
 ## Current Status
 - Principles and constitutions are established.
 - V1 planning templates are in place.
-- Implementation is intentionally not started yet.
+- V1 runtime core skeleton is started under `src/` with local demo path.
 
 ## Repo Structure
 - `persona.toml`: machine-readable personality baseline.

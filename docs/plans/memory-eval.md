@@ -1,18 +1,27 @@
 # Memory Evaluation
 
-## Metrics
+## Evaluation Objective
+Ensure memory growth improves decision quality without identity drift.
+
+## Core Metrics
 - Repeated-problem improvement rate.
 - Action follow-through rate after guidance.
-- Memory hit precision (relevance of recalled patterns).
-- False-promotion rate (bad L2 promotions).
+- Recall relevance precision.
+- False-promotion rate.
+- Contradiction resolution quality.
 
-## Test Scenarios
-- Recurrent stress pattern across different contexts.
-- Similar problem, different wording, same memory expectation.
-- Contradictory evidence introduced after prior L2 promotion.
-- Severe-event path with TTL return to normal mode.
+## Evaluation Dataset
+- At least 20 repeated-pattern cases.
+- At least 10 contradiction-injection cases.
+- At least 10 severe-event cases with TTL return checks.
 
-## Review Cadence
-- Weekly tactical review for quality drift.
-- Monthly policy review for promotion/pruning thresholds.
-- Immediate review when critical persona or safety deviation is detected.
+## Test Protocol
+1. Run baseline without L2 recall.
+2. Run with L2 recall enabled.
+3. Compare quality deltas and error classes.
+4. Record promotion errors and root causes.
+
+## Decision Rules
+- Keep policy if quality gains are positive and stable.
+- Tune promotion thresholds if false-promotion rises above target.
+- Trigger incident review on any critical persona/safety memory failure.

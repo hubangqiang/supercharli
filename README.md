@@ -29,3 +29,10 @@ This repository separates two layers clearly:
 2. Read `docs/02-development-workflow.zh-CN.md`.
 3. Follow `docs/03-model-collaboration-contract.zh-CN.md` for any model-driven implementation.
 4. Use `docs/04-handoff-checklist.zh-CN.md` before handing work to another model.
+
+## Open Source Governance
+- `CONTRIBUTING.md`: contribution workflow and quality gate.
+- `CODE_OF_CONDUCT.md`: community behavior expectations.
+- `SECURITY.md`: private vulnerability disclosure policy.
+- `SUPPORT.md`: support and issue reporting guidance.
+- `CHANGELOG.md`: notable changes and release-facing history.

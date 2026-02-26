@@ -12,5 +12,7 @@ Provide local persistent interactive experience with a background daemon.
 ## Repo-Safe Wrapper
 - `scripts/supercharli-runtime.sh start`
 - `scripts/supercharli-runtime.sh cli`
+- `scripts/supercharli-runtime.sh export`
+- `scripts/supercharli-runtime.sh import <bundle-dir>`
 
 Default runtime paths are outside repository under `~/supercharli-runtime`.

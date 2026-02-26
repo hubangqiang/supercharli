@@ -121,3 +121,23 @@ npm run restore -- <snapshot-dir>
 ```bash
 ./scripts/supercharli-runtime.sh stop
 ```
+
+## 13. 环境迁移（导出/导入）
+当你要换机器或重装环境时：
+
+导出：
+```bash
+npm run export:bundle
+```
+输出目录默认在：`~/supercharli-runtime/exports/bundle-时间戳`
+
+导入：
+```bash
+npm run import:bundle -- <bundle-dir>
+```
+
+导出内容包括：
+- 记忆数据库（如果存在）
+- 用户配置：`charli.profile.json`、`providers.config.json`、`supercharli.env.sh`
+
+导入时会自动备份目标环境已有同名文件为 `.bak.<timestamp>`。

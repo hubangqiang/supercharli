@@ -58,12 +58,19 @@ This repository separates two layers clearly:
   - `scripts/supercharli-runtime.sh start`
   - `scripts/supercharli-runtime.sh cli --session main`
 - This keeps runtime data outside repo under `~/supercharli-runtime` by default.
+- Migration with wrapper:
+  - `scripts/supercharli-runtime.sh export`
+  - `scripts/supercharli-runtime.sh import <bundle-dir>`
 
 ## Portability
 - Create snapshot:
   - `npm run backup`
 - Restore snapshot:
   - `npm run restore -- backups/<snapshot-id>`
+- Create migration bundle:
+  - `npm run export:bundle`
+- Import migration bundle:
+  - `npm run import:bundle -- <bundle-dir>`
 - Backup/restore guide:
   - `docs/guide/local-backup-restore.zh-CN.md`
 

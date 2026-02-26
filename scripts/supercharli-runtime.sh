@@ -14,7 +14,7 @@ cmd="${1:-}"
 shift || true
 
 if [[ -z "$cmd" ]]; then
-  echo "Usage: scripts/supercharli-runtime.sh <start|stop|status|cli|chat|metrics|demo|test|backup|restore> [args...]"
+  echo "Usage: scripts/supercharli-runtime.sh <start|stop|status|cli|chat|metrics|demo|test|backup|restore|export|import> [args...]"
   exit 1
 fi
 
@@ -56,6 +56,12 @@ case "$cmd" in
     ;;
   restore)
     npm run restore -- "$@"
+    ;;
+  export)
+    npm run export:bundle -- "$@"
+    ;;
+  import)
+    npm run import:bundle -- "$@"
     ;;
   *)
     echo "Unsupported command: $cmd"

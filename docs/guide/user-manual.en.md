@@ -120,3 +120,23 @@ Edit `~/.config/supercharli/charli.profile.json`, then restart daemon.
 ```bash
 ./scripts/supercharli-runtime.sh stop
 ```
+
+## 13. Environment Migration (Export / Import)
+When moving to a new machine or redeploying:
+
+Export:
+```bash
+npm run export:bundle
+```
+Default output: `~/supercharli-runtime/exports/bundle-<timestamp>`
+
+Import:
+```bash
+npm run import:bundle -- <bundle-dir>
+```
+
+Bundle includes:
+- Memory database (if present)
+- User config files: `charli.profile.json`, `providers.config.json`, `supercharli.env.sh`
+
+Import automatically backs up existing target files as `.bak.<timestamp>`.

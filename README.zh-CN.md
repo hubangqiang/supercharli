@@ -35,3 +35,5 @@ source ~/.config/supercharli/supercharli.env.sh
 - 停止：`./scripts/supercharli-runtime.sh stop`
 - 备份：`npm run backup`
 - 恢复：`npm run restore -- <snapshot-dir>`
+- 导出迁移包：`./scripts/supercharli-runtime.sh export`
+- 导入迁移包：`./scripts/supercharli-runtime.sh import <bundle-dir>`

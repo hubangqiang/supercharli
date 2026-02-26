@@ -36,11 +36,16 @@
   - `scripts/supercharli-runtime.sh chat "你好" main`
 - 查看状态：
   - `scripts/supercharli-runtime.sh status`
+- 导出迁移包：
+  - `scripts/supercharli-runtime.sh export`
+- 导入迁移包：
+  - `scripts/supercharli-runtime.sh import <bundle-dir>`
 
 默认外部路径：
 - `~/supercharli-runtime/data/supercharli.db`
 - `~/supercharli-runtime/backups`
 - `~/supercharli-runtime/run`
+- `~/supercharli-runtime/exports`
 
 可通过 `SUPERCHARLI_RUNTIME_HOME` 覆盖根目录。
 

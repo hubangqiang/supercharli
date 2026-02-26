@@ -2,6 +2,7 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 const { Kernel } = require("../src/core/kernel");
+const { SeverityStateMachine } = require("../src/core/severityStateMachine");
 const { InMemoryMemoryEngine } = require("../src/memory/inMemoryMemoryEngine");
 const { SQLiteMemoryEngine } = require("../src/memory/sqliteMemoryEngine");
 const { BasicModelRouter } = require("../src/router/basicModelRouter");
@@ -31,6 +32,38 @@ async function runCoreFlowChecks() {
   assert.strictEqual(p3.meta.promotedToL2, true, "third repeat should promote to L2");
 }
 
+function runSeverityStateChecks() {
+  let now = 0;
+  const machine = new SeverityStateMachine({
+    ttlMs: { s1: 10, s2: 20, s3: 30 },
+    clock: () => now,
+  });
+
+  const sessionId = "severity-1";
+
+  const s3 = machine.resolve({ sessionId, text: "high-risk", riskSignals: ["guardrail-risk"] });
+  assert.strictEqual(s3, "s3", "should escalate to s3");
+
+  now += 29;
+  const holdS3 = machine.resolve({ sessionId, text: "普通对话" });
+  assert.strictEqual(holdS3, "s3", "should keep s3 before ttl expiry");
+
+  now += 1;
+  const downToS2 = machine.resolve({ sessionId, text: "普通对话" });
+  assert.strictEqual(downToS2, "s2", "should step down to s2 after s3 ttl");
+
+  now += 20;
+  const downToS1 = machine.resolve({ sessionId, text: "普通对话" });
+  assert.strictEqual(downToS1, "s1", "should step down to s1 after s2 ttl");
+
+  now += 10;
+  const downToNormal = machine.resolve({ sessionId, text: "普通对话" });
+  assert.strictEqual(downToNormal, "normal", "should return to normal after s1 ttl");
+
+  const s2Again = machine.resolve({ sessionId, text: "连续失败", riskSignals: ["repeated-failure"] });
+  assert.strictEqual(s2Again, "s2", "should re-escalate when new signal appears");
+}
+
 async function runSQLitePersistenceChecks() {
   const tmpDir = fs.mkdtempSync(path.join(process.cwd(), "tmp-runtime-core-"));
   const dbPath = path.join(tmpDir, "memory.db");
@@ -58,6 +91,7 @@ async function runSQLitePersistenceChecks() {
 
 async function run() {
   await runCoreFlowChecks();
+  runSeverityStateChecks();
   await runSQLitePersistenceChecks();
   console.log("runtime core tests: PASS");
 }

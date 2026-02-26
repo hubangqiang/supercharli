@@ -1,19 +1,3 @@
-function resolveSeverity(input) {
-  const signals = input.riskSignals || [];
-  const text = input.text.toLowerCase();
-
-  const hasS3Signal = signals.includes("guardrail-risk") || text.includes("不可逆") || text.includes("high-risk");
-  if (hasS3Signal) return "s3";
-
-  const hasS2Signal = signals.includes("repeated-failure") || text.includes("连续失败") || text.includes("拖延");
-  if (hasS2Signal) return "s2";
-
-  const hasS1Signal = signals.includes("stress-rise") || text.includes("焦虑") || text.includes("压力");
-  if (hasS1Signal) return "s1";
-
-  return "normal";
-}
-
 function applyPersonaGuard(text, severity) {
   if (/guaranteed|100%|绝对成功/i.test(text)) {
     return {
@@ -48,4 +32,4 @@ function normalizeResponse(generated, severity) {
   };
 }
 
-module.exports = { resolveSeverity, applyPersonaGuard, normalizeResponse };
+module.exports = { applyPersonaGuard, normalizeResponse };

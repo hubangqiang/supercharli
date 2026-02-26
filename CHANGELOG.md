@@ -9,3 +9,6 @@ This project follows Semantic Versioning.
 
 ### Added
 - Governance documents and phased implementation plans.
+- SQLite-based local memory engine for persistent L1/L2 memory across restarts.
+- Severity state machine with session-level escalation and TTL-based de-escalation.
+- Runtime tests covering fallback, persona regeneration, memory persistence, and severity transitions.

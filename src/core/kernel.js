@@ -1,16 +1,18 @@
 const crypto = require("crypto");
-const { resolveSeverity, applyPersonaGuard, normalizeResponse } = require("./policies");
+const { applyPersonaGuard, normalizeResponse } = require("./policies");
+const { SeverityStateMachine } = require("./severityStateMachine");
 
 class Kernel {
-  constructor(memoryEngine, router) {
+  constructor(memoryEngine, router, severityMachine = new SeverityStateMachine()) {
     this.memory = memoryEngine;
     this.router = router;
+    this.severity = severityMachine;
   }
 
   async runTurn(input) {
     const traceId = crypto.randomUUID();
 
-    const severity = resolveSeverity(input);
+    const severity = this.severity.resolve(input);
     const l1 = this.memory.readL1(input.sessionId);
     const recalled = this.memory.recallL2(input.text);
 
@@ -25,12 +27,16 @@ class Kernel {
     const guard = applyPersonaGuard(generation.result.content, severity);
     const generated = guard.ok
       ? generation.result
-      : await this.router.regenerateSafe(generation.result.model, {
-          text: input.text,
-          l1,
-          recalled,
-          severity,
-        }, guard.reason);
+      : await this.router.regenerateSafe(
+          generation.result.model,
+          {
+            text: input.text,
+            l1,
+            recalled,
+            severity,
+          },
+          guard.reason,
+        );
 
     const response = normalizeResponse(generated, severity);
 

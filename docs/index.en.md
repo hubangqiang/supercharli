@@ -64,3 +64,8 @@
 - `SECURITY.md`
 - `SUPPORT.md`
 - `CHANGELOG.md`
+
+## 5. Default Persona Background (Config)
+- `config/charli.profile.base.json`
+- `config/johnny.silverhand.background.zh-CN.md`
+- `config/johnny.silverhand.background.en.md`

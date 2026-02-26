@@ -69,3 +69,8 @@
 - `SECURITY.md`
 - `SUPPORT.md`
 - `CHANGELOG.md`
+
+## 5. 默认角色背景（Config）
+- `config/charli.profile.base.json`
+- `config/johnny.silverhand.background.zh-CN.md`
+- `config/johnny.silverhand.background.en.md`

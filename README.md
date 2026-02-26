@@ -45,7 +45,7 @@ You can override with:
 - Safety: persona guard with regeneration on certainty/risk violations.
 - Memory: local L1/L2 with auto-promotion and restart persistence.
 - Telemetry: per-turn stage events and counters for fallback/safety/latency tracking.
-- Provider adapters: DeepSeek / Gemini / Anthropic with unified `provider:model` config.
+- Provider adapters: model-agnostic, configuration-driven `provider:model` routing.
 
 ## Daemon + CLI
 - Start daemon:
@@ -76,6 +76,8 @@ You can override with:
   - `docs/guide/model-provider-config.zh-CN.md`
 - Env template:
   - `scripts/env/supercharli.env.example.sh`
+- Provider config template:
+  - `scripts/env/providers.config.example.json`
 - macOS startup loader:
   - `scripts/env/install-launchagent.sh`
 

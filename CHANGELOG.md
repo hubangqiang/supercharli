@@ -15,7 +15,7 @@ This project follows Semantic Versioning.
 - Structured route metadata and multi-level fallback chain (retry -> secondary -> minimal-safe).
 - Lightweight telemetry component for per-turn stage logs and runtime counters.
 - Snapshot backup and restore scripts with manifest checksum verification.
-- Provider adapter layer for DeepSeek/Gemini/Anthropic with configurable model refs.
+- Provider adapter layer with model-agnostic, file-driven configuration.
 - Acceptance tests for provider parsing, registry behavior, and router fallback with injected providers.
 - macOS startup env loader scripts and environment template for model provider config.
 - Background daemon and interactive CLI mode for persistent local chat sessions.

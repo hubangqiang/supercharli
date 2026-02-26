@@ -1,0 +1,30 @@
+{
+  "providers": [
+    {
+      "id": "primary",
+      "type": "openai_compatible",
+      "baseURL": "https://example-openai-compatible.local/v1",
+      "apiKeyEnv": "PRIMARY_PROVIDER_API_KEY",
+      "timeoutMs": 20000
+    },
+    {
+      "id": "reasoning",
+      "type": "anthropic",
+      "baseURL": "https://example-anthropic.local",
+      "apiKeyEnv": "REASONING_PROVIDER_API_KEY",
+      "timeoutMs": 20000
+    },
+    {
+      "id": "backup",
+      "type": "gemini",
+      "baseURL": "https://generativelanguage.googleapis.com",
+      "apiKeyEnv": "BACKUP_PROVIDER_API_KEY",
+      "timeoutMs": 20000
+    }
+  ],
+  "routes": {
+    "fast": "primary:MODEL_FAST",
+    "deep": "reasoning:MODEL_DEEP",
+    "secondary": "backup:MODEL_FALLBACK"
+  }
+}

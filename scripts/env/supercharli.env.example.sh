@@ -1,31 +1,25 @@
 #!/usr/bin/env bash
-# SuperCharli provider and routing config template.
+# SuperCharli provider config template (model-agnostic).
 # Usage:
+#   mkdir -p ~/.config/supercharli
 #   cp scripts/env/supercharli.env.example.sh ~/.config/supercharli/supercharli.env.sh
-#   vim ~/.config/supercharli/supercharli.env.sh
-#   source ~/.config/supercharli/supercharli.env.sh
+#   cp scripts/env/providers.config.example.json ~/.config/supercharli/providers.config.json
+#   edit both files, then source ~/.config/supercharli/supercharli.env.sh
 
-# DeepSeek
-export DEEPSEEK_API_KEY=""
-export DEEPSEEK_BASE_URL="https://api.deepseek.com/v1"
+# External provider config (OpenClaw-style: file-driven)
+export SUPERCHARLI_PROVIDER_CONFIG_FILE="$HOME/.config/supercharli/providers.config.json"
 
-# Gemini
-export GEMINI_API_KEY=""
-# Optional (usually leave empty)
-# export GEMINI_BASE_URL="https://generativelanguage.googleapis.com"
+# Provider keys referenced by providers.config.json(apiKeyEnv)
+export PRIMARY_PROVIDER_API_KEY=""
+export REASONING_PROVIDER_API_KEY=""
+export BACKUP_PROVIDER_API_KEY=""
 
-# Anthropic / Claude (official or relay)
-export ANTHROPIC_BASE_URL=""
-export ANTHROPIC_AUTH_TOKEN=""
-
-# Routing model refs: provider:model
-# Fast route: low-latency default
-export SUPERCHARLI_MODEL_FAST="deepseek:deepseek-chat"
-# Deep route: complex reasoning
-export SUPERCHARLI_MODEL_DEEP="anthropic:claude-sonnet-4-20250514"
-# Secondary route: fallback target
-export SUPERCHARLI_MODEL_SECONDARY="gemini:gemini-2.0-flash"
+# Optional route overrides (if set, override config.routes)
+# export SUPERCHARLI_MODEL_FAST="primary:MODEL_FAST"
+# export SUPERCHARLI_MODEL_DEEP="reasoning:MODEL_DEEP"
+# export SUPERCHARLI_MODEL_SECONDARY="backup:MODEL_FALLBACK"
 
 # Optional runtime paths
-# export SUPERCHARLI_DB_PATH="$HOME/Documents/code/supercharli/data/supercharli.db"
-# export SUPERCHARLI_BACKUP_DIR="$HOME/Documents/code/supercharli/backups"
+# export SUPERCHARLI_DB_PATH="$HOME/supercharli-runtime/data/supercharli.db"
+# export SUPERCHARLI_BACKUP_DIR="$HOME/supercharli-runtime/backups"
+# export SUPERCHARLI_RUNTIME_DIR="$HOME/supercharli-runtime/run"

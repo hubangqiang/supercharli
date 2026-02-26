@@ -1,3 +1,4 @@
+const fs = require("fs");
 const { MockAdapter } = require("./mockAdapter");
 const { OpenAICompatibleAdapter } = require("./openaiCompatibleAdapter");
 const { GeminiAdapter } = require("./geminiAdapter");
@@ -5,49 +6,76 @@ const { AnthropicAdapter } = require("./anthropicAdapter");
 
 function parseModelRef(value, fallback) {
   const raw = value || fallback;
-  const [provider, ...rest] = raw.split(":");
+  const [provider, ...rest] = String(raw).split(":");
   return { provider, model: rest.join(":") };
+}
+
+function readProviderConfig(env) {
+  if (env.SUPERCHARLI_PROVIDER_CONFIG_JSON) {
+    return JSON.parse(env.SUPERCHARLI_PROVIDER_CONFIG_JSON);
+  }
+
+  if (env.SUPERCHARLI_PROVIDER_CONFIG_FILE && fs.existsSync(env.SUPERCHARLI_PROVIDER_CONFIG_FILE)) {
+    const raw = fs.readFileSync(env.SUPERCHARLI_PROVIDER_CONFIG_FILE, "utf8");
+    return JSON.parse(raw);
+  }
+
+  return null;
+}
+
+function buildAdapter(def, env) {
+  const type = def.type;
+  const apiKey = def.apiKey || (def.apiKeyEnv ? env[def.apiKeyEnv] : "");
+
+  if (type === "openai_compatible") {
+    if (!apiKey) throw new Error(`provider_missing_api_key:${def.id}`);
+    return new OpenAICompatibleAdapter({
+      baseURL: def.baseURL,
+      apiKey,
+      timeoutMs: def.timeoutMs,
+    });
+  }
+
+  if (type === "gemini") {
+    if (!apiKey) throw new Error(`provider_missing_api_key:${def.id}`);
+    return new GeminiAdapter({
+      baseURL: def.baseURL,
+      apiKey,
+      timeoutMs: def.timeoutMs,
+    });
+  }
+
+  if (type === "anthropic") {
+    if (!apiKey) throw new Error(`provider_missing_api_key:${def.id}`);
+    return new AnthropicAdapter({
+      baseURL: def.baseURL,
+      apiKey,
+      timeoutMs: def.timeoutMs,
+    });
+  }
+
+  throw new Error(`unsupported_provider_type:${type}`);
 }
 
 function createProviderRegistry(env = process.env) {
   const providers = new Map();
   providers.set("mock", new MockAdapter());
 
-  if (env.DEEPSEEK_API_KEY) {
-    providers.set(
-      "deepseek",
-      new OpenAICompatibleAdapter({
-        baseURL: env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1",
-        apiKey: env.DEEPSEEK_API_KEY,
-      }),
-    );
+  const config = readProviderConfig(env);
+  if (config?.providers?.length) {
+    for (const def of config.providers) {
+      if (!def.id) {
+        throw new Error("provider_id_required");
+      }
+      providers.set(def.id, buildAdapter(def, env));
+    }
   }
 
-  if (env.GEMINI_API_KEY) {
-    providers.set(
-      "gemini",
-      new GeminiAdapter({
-        apiKey: env.GEMINI_API_KEY,
-        baseURL: env.GEMINI_BASE_URL,
-      }),
-    );
-  }
-
-  const anthropicKey = env.ANTHROPIC_AUTH_TOKEN || env.ANTHROPIC_API_KEY;
-  if (anthropicKey) {
-    providers.set(
-      "anthropic",
-      new AnthropicAdapter({
-        baseURL: env.ANTHROPIC_BASE_URL || "https://api.anthropic.com",
-        apiKey: anthropicKey,
-      }),
-    );
-  }
-
+  const defaultRoutes = config?.routes || {};
   const models = {
-    fast: parseModelRef(env.SUPERCHARLI_MODEL_FAST, "mock:fast-default"),
-    deep: parseModelRef(env.SUPERCHARLI_MODEL_DEEP, "mock:deep-default"),
-    secondary: parseModelRef(env.SUPERCHARLI_MODEL_SECONDARY, "mock:safe-secondary"),
+    fast: parseModelRef(env.SUPERCHARLI_MODEL_FAST, defaultRoutes.fast || "mock:fast-default"),
+    deep: parseModelRef(env.SUPERCHARLI_MODEL_DEEP, defaultRoutes.deep || "mock:deep-default"),
+    secondary: parseModelRef(env.SUPERCHARLI_MODEL_SECONDARY, defaultRoutes.secondary || "mock:safe-secondary"),
   };
 
   return {

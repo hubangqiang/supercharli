@@ -4,7 +4,8 @@ set -euo pipefail
 ENV_FILE="${1:-$HOME/.config/supercharli/supercharli.env.sh}"
 LABEL="com.supercharli.env"
 PLIST_TARGET="$HOME/Library/LaunchAgents/${LABEL}.plist"
-TEMPLATE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/.launchagents/${LABEL}.plist.template"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+TEMPLATE="$ROOT_DIR/.launchagents/${LABEL}.plist.template"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "env file not found: $ENV_FILE"
@@ -19,7 +20,8 @@ fi
 
 mkdir -p "$HOME/Library/LaunchAgents"
 ESCAPED_ENV_FILE=$(printf '%s\n' "$ENV_FILE" | sed 's/[\\&]/\\&/g')
-sed "s#__ENV_FILE__#${ESCAPED_ENV_FILE}#g" "$TEMPLATE" > "$PLIST_TARGET"
+ESCAPED_ROOT_DIR=$(printf '%s\n' "$ROOT_DIR" | sed 's/[\\&]/\\&/g')
+sed -e "s#__ENV_FILE__#${ESCAPED_ENV_FILE}#g" -e "s#__ROOT_DIR__#${ESCAPED_ROOT_DIR}#g" "$TEMPLATE" > "$PLIST_TARGET"
 
 if launchctl print "gui/$(id -u)/${LABEL}" >/dev/null 2>&1; then
   launchctl bootout "gui/$(id -u)" "$PLIST_TARGET" || true
@@ -30,4 +32,4 @@ launchctl kickstart -k "gui/$(id -u)/${LABEL}"
 
 echo "installed: $PLIST_TARGET"
 echo "env file: $ENV_FILE"
-echo "verify with: launchctl getenv SUPERCHARLI_MODEL_FAST"
+echo "verify with: launchctl getenv SUPERCHARLI_PROVIDER_CONFIG_FILE"

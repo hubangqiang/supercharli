@@ -1,10 +1,13 @@
 const assert = require("assert");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const { createProviderRegistry, parseModelRef } = require("../src/providers/providerRegistry");
 const { BasicModelRouter } = require("../src/router/basicModelRouter");
 
 function runModelRefParsingChecks() {
-  const parsed = parseModelRef("deepseek:deepseek-chat", "mock:fast-default");
-  assert.deepStrictEqual(parsed, { provider: "deepseek", model: "deepseek-chat" });
+  const parsed = parseModelRef("primary:MODEL_FAST", "mock:fast-default");
+  assert.deepStrictEqual(parsed, { provider: "primary", model: "MODEL_FAST" });
 
   const fallback = parseModelRef(undefined, "mock:fast-default");
   assert.deepStrictEqual(fallback, { provider: "mock", model: "fast-default" });
@@ -17,11 +20,48 @@ async function runRegistryChecks() {
   await assert.rejects(
     () =>
       reg.generate(
-        { provider: "deepseek", model: "deepseek-chat" },
+        { provider: "primary", model: "MODEL_FAST" },
         { text: "hello", recalled: [] },
       ),
-    /provider_not_configured:deepseek/,
+    /provider_not_configured:primary/,
   );
+}
+
+function runConfigFileLoadingChecks() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "supercharli-provider-config-"));
+  const configPath = path.join(tmpDir, "providers.json");
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify(
+      {
+        providers: [
+          {
+            id: "primary",
+            type: "openai_compatible",
+            baseURL: "https://example.local/v1",
+            apiKeyEnv: "PRIMARY_PROVIDER_API_KEY",
+          },
+        ],
+        routes: {
+          fast: "primary:MODEL_FAST",
+          deep: "primary:MODEL_DEEP",
+          secondary: "mock:safe-secondary",
+        },
+      },
+      null,
+      2,
+    ),
+  );
+
+  const reg = createProviderRegistry({
+    SUPERCHARLI_PROVIDER_CONFIG_FILE: configPath,
+    PRIMARY_PROVIDER_API_KEY: "dummy",
+  });
+
+  assert.strictEqual(reg.models.fast.provider, "primary");
+  assert.strictEqual(reg.models.fast.model, "MODEL_FAST");
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 
 async function runRouterWithInjectedProvidersChecks() {
@@ -56,6 +96,7 @@ async function runRouterWithInjectedProvidersChecks() {
 async function run() {
   runModelRefParsingChecks();
   await runRegistryChecks();
+  runConfigFileLoadingChecks();
   await runRouterWithInjectedProvidersChecks();
   console.log("provider acceptance tests: PASS");
 }

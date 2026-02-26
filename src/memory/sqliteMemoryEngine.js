@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
+const { getDefaultDbPath } = require("../runtime/runtimePaths");
 
 class SQLiteMemoryEngine {
   constructor(options = {}) {
@@ -8,7 +9,7 @@ class SQLiteMemoryEngine {
     this.recallLimit = options.recallLimit || 5;
     this.l1Limit = options.l1Limit || 20;
 
-    const dbPath = options.dbPath || path.join(process.cwd(), "data", "supercharli.db");
+    const dbPath = options.dbPath || getDefaultDbPath(options.env || process.env);
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
     this.db = new DatabaseSync(dbPath);

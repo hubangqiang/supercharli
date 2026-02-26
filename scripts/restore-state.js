@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const path = require("path");
 const { restoreSnapshot } = require("../src/ops/snapshot");
+const { getDefaultDbPath } = require("../src/runtime/runtimePaths");
 
 function main() {
   const rootDir = process.cwd();
@@ -11,7 +12,7 @@ function main() {
     process.exit(1);
   }
 
-  const dbPath = process.env.SUPERCHARLI_DB_PATH || path.join(rootDir, "data", "supercharli.db");
+  const dbPath = getDefaultDbPath(process.env);
   const result = restoreSnapshot({
     rootDir,
     snapshotDir: path.resolve(rootDir, snapshotDir),

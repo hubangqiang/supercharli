@@ -1,11 +1,11 @@
-const path = require("path");
 const { Kernel } = require("../core/kernel");
 const { SQLiteMemoryEngine } = require("../memory/sqliteMemoryEngine");
 const { BasicModelRouter } = require("../router/basicModelRouter");
+const { getDefaultDbPath } = require("./runtimePaths");
 
 async function main() {
   const memory = new SQLiteMemoryEngine({
-    dbPath: process.env.SUPERCHARLI_DB_PATH || path.join(process.cwd(), "data", "supercharli.db"),
+    dbPath: getDefaultDbPath(process.env),
   });
   const router = new BasicModelRouter();
   const kernel = new Kernel(memory, router);

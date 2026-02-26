@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
+const { getDefaultRuntimeDir, getDefaultSocketPath } = require("../src/runtime/runtimePaths");
 
 function runtimePaths() {
-  const runtimeDir = process.env.SUPERCHARLI_RUNTIME_DIR || path.join(os.homedir(), ".supercharli");
+  const runtimeDir = getDefaultRuntimeDir(process.env);
   return {
     runtimeDir,
-    socketPath: process.env.SUPERCHARLI_SOCKET_PATH || path.join(runtimeDir, "daemon.sock"),
+    socketPath: getDefaultSocketPath(process.env),
     pidPath: path.join(runtimeDir, "daemon.pid"),
     logPath: path.join(runtimeDir, "daemon.log"),
   };

@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 const net = require("net");
-const os = require("os");
-const path = require("path");
 const readline = require("readline");
+const { getDefaultSocketPath } = require("../src/runtime/runtimePaths");
 
 function runtimePaths() {
-  const runtimeDir = process.env.SUPERCHARLI_RUNTIME_DIR || path.join(os.homedir(), ".supercharli");
   return {
-    socketPath: process.env.SUPERCHARLI_SOCKET_PATH || path.join(runtimeDir, "daemon.sock"),
+    socketPath: getDefaultSocketPath(process.env),
   };
 }
 

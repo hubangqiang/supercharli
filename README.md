@@ -35,7 +35,7 @@ This repository separates two layers clearly:
 - Run tests:
   - `npm test`
 
-By default, demo uses local SQLite memory at `data/supercharli.db`.
+By default, demo uses local SQLite memory at `~/supercharli-runtime/data/supercharli.db`.
 You can override with:
 - `SUPERCHARLI_DB_PATH=/absolute/path/to/memory.db npm run demo`
 

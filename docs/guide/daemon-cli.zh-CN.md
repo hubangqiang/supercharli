@@ -50,10 +50,10 @@
 - `/metrics`：查看运行计数
 
 ## 运行路径
-- 默认 runtime 目录：`~/.supercharli`
-- 默认 socket：`~/.supercharli/daemon.sock`
-- 默认 pid：`~/.supercharli/daemon.pid`
-- 默认日志：`~/.supercharli/daemon.log`
+- 默认 runtime 目录：`~/supercharli-runtime/run`
+- 默认 socket：`~/supercharli-runtime/run/daemon.sock`
+- 默认 pid：`~/supercharli-runtime/run/daemon.pid`
+- 默认日志：`~/supercharli-runtime/run/daemon.log`
 
 可通过环境变量覆盖：
 - `SUPERCHARLI_RUNTIME_DIR`
@@ -63,6 +63,6 @@
 - daemon 未启动：
   - 先执行 `npm run daemon:status`
 - socket 不可用：
-  - 查看日志 `~/.supercharli/daemon.log`
+  - 查看日志 `~/supercharli-runtime/run/daemon.log`
 - provider 配置错误：
   - 参考 `docs/guide/model-provider-config.zh-CN.md`

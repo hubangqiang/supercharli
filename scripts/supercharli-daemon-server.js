@@ -1,17 +1,15 @@
 #!/usr/bin/env node
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 const { createDaemonServer } = require("../src/daemon/server");
+const { getDefaultDbPath, getDefaultRuntimeDir, getDefaultSocketPath } = require("../src/runtime/runtimePaths");
 
 function runtimePaths() {
-  const runtimeDir = process.env.SUPERCHARLI_RUNTIME_DIR || path.join(os.homedir(), ".supercharli");
+  const runtimeDir = getDefaultRuntimeDir(process.env);
   return {
     runtimeDir,
-    socketPath: process.env.SUPERCHARLI_SOCKET_PATH || path.join(runtimeDir, "daemon.sock"),
-    dbPath:
-      process.env.SUPERCHARLI_DB_PATH ||
-      path.join(process.cwd(), "data", "supercharli.db"),
+    socketPath: getDefaultSocketPath(process.env),
+    dbPath: getDefaultDbPath(process.env),
     pidPath: path.join(runtimeDir, "daemon.pid"),
   };
 }

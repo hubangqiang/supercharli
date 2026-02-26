@@ -19,3 +19,4 @@ This project follows Semantic Versioning.
 - Acceptance tests for provider parsing, registry behavior, and router fallback with injected providers.
 - macOS startup env loader scripts and environment template for model provider config.
 - Background daemon and interactive CLI mode for persistent local chat sessions.
+- Repo-safe runtime wrapper script to run with external state directory.

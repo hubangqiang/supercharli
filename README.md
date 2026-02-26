@@ -57,6 +57,12 @@ You can override with:
 - Guide:
   - `docs/guide/daemon-cli.zh-CN.md`
 
+## Repo-Safe Runtime (No Repo Mutation)
+- Use wrapper script:
+  - `scripts/supercharli-runtime.sh start`
+  - `scripts/supercharli-runtime.sh cli --session main`
+- This keeps runtime data outside repo under `~/supercharli-runtime` by default.
+
 ## Portability
 - Create snapshot:
   - `npm run backup`

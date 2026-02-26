@@ -10,6 +10,8 @@
   - `scripts/supercharli-daemon-server.js`
 - 交互客户端（cli）：
   - `scripts/supercharli-cli.js`
+- 仓库外运行包装脚本：
+  - `scripts/supercharli-runtime.sh`
 
 ## 启动与停止
 - 启动后台：
@@ -24,6 +26,23 @@
   - `npm run cli -- --session main --text "你好"`
 - 交互模式：
   - `npm run cli -- --session main`
+
+## 推荐：仓库外运行（避免修改仓库）
+- 启动后台：
+  - `scripts/supercharli-runtime.sh start`
+- 进入交互：
+  - `scripts/supercharli-runtime.sh cli --session main`
+- 单次提问：
+  - `scripts/supercharli-runtime.sh chat "你好" main`
+- 查看状态：
+  - `scripts/supercharli-runtime.sh status`
+
+默认外部路径：
+- `~/supercharli-runtime/data/supercharli.db`
+- `~/supercharli-runtime/backups`
+- `~/supercharli-runtime/run`
+
+可通过 `SUPERCHARLI_RUNTIME_HOME` 覆盖根目录。
 
 ## 交互命令
 - `/exit`：退出交互

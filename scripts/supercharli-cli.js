@@ -1,16 +1,21 @@
 #!/usr/bin/env node
+const fs = require("fs");
 const net = require("net");
+const path = require("path");
 const readline = require("readline");
-const { getDefaultSocketPath } = require("../src/runtime/runtimePaths");
+const { getDefaultRuntimeDir, getDefaultSocketPath } = require("../src/runtime/runtimePaths");
 
 function runtimePaths() {
+  const runtimeDir = getDefaultRuntimeDir(process.env);
   return {
+    runtimeDir,
     socketPath: getDefaultSocketPath(process.env),
+    sessionFile: path.join(runtimeDir, "last-session.txt"),
   };
 }
 
 function parseArgs(argv) {
-  const out = { sessionId: "main", text: null, complexity: null, mode: "chat" };
+  const out = { sessionId: null, text: null, complexity: null, mode: "chat" };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === "--session" && argv[i + 1]) {
@@ -26,6 +31,36 @@ function parseArgs(argv) {
     }
   }
   return out;
+}
+
+function generateSessionId() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `session-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+function resolveSessionId(explicitSessionId) {
+  if (explicitSessionId) {
+    saveLastSessionId(explicitSessionId);
+    return explicitSessionId;
+  }
+
+  const { runtimeDir, sessionFile } = runtimePaths();
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  if (fs.existsSync(sessionFile)) {
+    const value = fs.readFileSync(sessionFile, "utf8").trim();
+    if (value) return value;
+  }
+
+  const created = generateSessionId();
+  saveLastSessionId(created);
+  return created;
+}
+
+function saveLastSessionId(sessionId) {
+  const { runtimeDir, sessionFile } = runtimePaths();
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  fs.writeFileSync(sessionFile, `${sessionId}\n`);
 }
 
 function sendRequest(payload) {
@@ -84,7 +119,7 @@ async function runSingle(args) {
 
   const data = await sendRequest({
     type: "chat",
-    sessionId: args.sessionId,
+    sessionId: resolveSessionId(args.sessionId),
     text: args.text,
     complexity: args.complexity,
   });
@@ -93,7 +128,8 @@ async function runSingle(args) {
 }
 
 async function runInteractive(args) {
-  console.log(`SuperCharli interactive mode (session=${args.sessionId})`);
+  const sessionId = resolveSessionId(args.sessionId);
+  console.log(`SuperCharli interactive mode (session=${sessionId})`);
   console.log("Type /exit to quit, /deep to toggle deep mode, /metrics for runtime metrics.");
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: "> " });
@@ -133,7 +169,7 @@ async function runInteractive(args) {
     try {
       const data = await sendRequest({
         type: "chat",
-        sessionId: args.sessionId,
+        sessionId,
         text,
         complexity: deepMode ? "deep" : undefined,
       });
@@ -156,6 +192,7 @@ async function main() {
     console.log("  supercharli-cli --text \"你好\" --session main");
     console.log("  supercharli-cli --metrics");
     console.log("  supercharli-cli --session main   (interactive mode)");
+    console.log("  supercharli-cli                  (auto reuse last session)");
     return;
   }
 

@@ -19,4 +19,4 @@
 ## 后续协作建议
 - 采用小步提交。
 - 每次功能改动同步更新对应文档。
-- 以 `plans/acceptance.v1.md` 作为阶段验收依据。
+- 以 `docs/plans/acceptance.v1.md` 作为阶段验收依据。

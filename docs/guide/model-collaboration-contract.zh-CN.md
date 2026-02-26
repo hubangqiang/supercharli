@@ -6,11 +6,11 @@
 ## 输入契约
 每个模型接手前必须先阅读：
 - `persona.toml`
-- `charter.zh-CN.md`
-- `constitution.zh-CN.md`
-- `engineering.constitution.zh-CN.md`
-- `plans/scope.md`
-- `plans/acceptance.v1.md`
+- `docs/principles/product-charter.zh-CN.md`
+- `docs/principles/product-constitution.zh-CN.md`
+- `docs/principles/engineering-constitution.zh-CN.md`
+- `docs/plans/scope.md`
+- `docs/plans/acceptance.v1.md`
 
 ## 输出契约
 每次输出必须明确：

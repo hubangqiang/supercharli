@@ -4,7 +4,7 @@ Thanks for contributing.
 
 ## Ground Rules
 - Keep product principles and engineering principles separated.
-- Do not expand scope without updating `plans/scope.md` first.
+- Do not expand scope without updating `docs/plans/scope.md` first.
 - Keep changes minimal, reversible, and well-documented.
 
 ## Development Flow

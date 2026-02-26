@@ -14,7 +14,9 @@ This repository separates two layers clearly:
 ## New User Start
 - Guided initialization:
   - `npm run init:user`
-- This creates your personal profile/config outside repository:
+- Repository base profile:
+  - `config/charli.profile.base.json`
+- Personal override files (outside repository):
   - `~/.config/supercharli/charli.profile.json`
   - `~/.config/supercharli/providers.config.json`
   - `~/.config/supercharli/supercharli.env.sh`

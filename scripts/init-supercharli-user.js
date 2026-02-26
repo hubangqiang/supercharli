@@ -3,6 +3,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const readline = require("readline");
+const { loadBaseProfile } = require("../src/runtime/userProfile");
 
 const CONFIG_DIR = path.join(os.homedir(), ".config", "supercharli");
 const PROFILE_FILE = path.join(CONFIG_DIR, "charli.profile.json");
@@ -35,14 +36,19 @@ function ask(rl, question, fallback = "") {
 }
 
 async function collectProfile(args) {
+  const base = loadBaseProfile(process.env) || {};
   const defaults = {
-    ownerName: args.owner || "Owner",
-    charliName: args.charli || "SuperCharli",
-    roleDefinition: args.role || "长期成长型个人助理",
-    backgroundSetting: args.background || "本地优先、长期陪伴、可持续进化",
-    personalityCoreRaw: args.personality || "乐观, 长远, 务实, 鼓励, 爱探索",
-    communicationStyle: args.style || "直接、具体、可执行",
-    longTermMission: args.mission || "帮助用户长期完成高价值目标",
+    ownerName: args.owner || "",
+    charliName: args.charli || base.charliName || "SuperCharli",
+    roleDefinition: args.role || base.roleDefinition || "长期成长型个人助理",
+    backgroundSetting: args.background || base.backgroundSetting || "本地优先、长期陪伴、可持续进化",
+    personalityCoreRaw:
+      args.personality ||
+      (Array.isArray(base.personalityCore) && base.personalityCore.length
+        ? base.personalityCore.join(",")
+        : "乐观,长远,务实,爱探索"),
+    communicationStyle: args.style || base.communicationStyle || "直接、具体、可执行",
+    longTermMission: args.mission || base.longTermMission || "帮助用户长期完成高价值目标",
   };
 
   if (args.defaults || !process.stdin.isTTY) {

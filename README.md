@@ -35,3 +35,10 @@ This repository separates two layers clearly:
 - `SECURITY.md`: private vulnerability disclosure policy.
 - `SUPPORT.md`: support and issue reporting guidance.
 - `CHANGELOG.md`: notable changes and release-facing history.
+
+## Continuity
+- `docs/guide/continuity-playbook.zh-CN.md`: handoff and continuity baseline.
+- `docs/guide/current-state.zh-CN.md`: current project status snapshot.
+- `docs/guide/next-actions.zh-CN.md`: prioritized next steps.
+- `docs/guide/decision-log.zh-CN.md`: durable decision record.
+- `docs/guide/branching-policy.zh-CN.md`: branch and merge discipline.

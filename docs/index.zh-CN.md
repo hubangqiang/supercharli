@@ -31,3 +31,10 @@
 - `SECURITY.md`
 - `SUPPORT.md`
 - `CHANGELOG.md`
+
+## 5. 连续性（Continuity）
+- `docs/guide/continuity-playbook.zh-CN.md`
+- `docs/guide/current-state.zh-CN.md`
+- `docs/guide/next-actions.zh-CN.md`
+- `docs/guide/decision-log.zh-CN.md`
+- `docs/guide/branching-policy.zh-CN.md`

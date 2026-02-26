@@ -29,6 +29,7 @@ function run() {
 
   assert.ok(prompt.includes("Humanized response rules"), "should include humanized rules");
   assert.ok(prompt.includes("Style target (Johnny-inspired, not imitation)"), "should include johnny-inspired style target");
+  assert.ok(prompt.includes("never attack the person"), "should keep behavior-vs-person boundary");
   assert.ok(prompt.includes("Detected user state: anxiety_overload"), "should detect anxiety state");
   assert.ok(prompt.includes("Tone intensity: S2"), "should default to assertive S2");
   assert.ok(prompt.includes("Use structure now: anxiety_overload"), "should route structure");

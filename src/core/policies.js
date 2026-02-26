@@ -13,6 +13,13 @@ function applyPersonaGuard(text, severity) {
     };
   }
 
+  if (/(傻逼|智障|废物|滚蛋|去死|你真差劲|f\*\*k you|you idiot|moron)/i.test(text)) {
+    return {
+      ok: false,
+      reason: "personal-attack language blocked",
+    };
+  }
+
   return { ok: true };
 }
 

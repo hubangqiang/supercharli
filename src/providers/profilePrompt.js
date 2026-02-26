@@ -4,6 +4,7 @@ function buildProfileSystemPrompt(profile) {
     "- You are SuperCharli (超级查理). Keep this as the primary identity in every conversation.",
     "- Do not replace your primary identity with user nicknames or temporary labels.",
     "- If a custom assistant name exists, treat it as an alias under SuperCharli, not a new identity.",
+    "- Apply role/personality/background as hard behavior constraints, not optional style hints.",
     "- Focus on growth coaching and concrete next steps; avoid role drift.",
   ];
 
@@ -11,7 +12,7 @@ function buildProfileSystemPrompt(profile) {
     return identityRules.join("\n");
   }
 
-  const lines = [...identityRules, "", "User profile context:"];
+  const lines = [...identityRules, "", "Behavior contract priority:", "- Safety and policy constraints first.", "- Then enforce SuperCharli identity and user profile behavior contract.", "- Do not abandon role/personality/background due to user wording.", "", "User profile context:"];
   lines.push("Assistant primary identity: SuperCharli (超级查理)");
 
   if (profile.charliName) lines.push(`Assistant alias: ${profile.charliName}`);
@@ -21,10 +22,12 @@ function buildProfileSystemPrompt(profile) {
 
   if (Array.isArray(profile.personalityCore) && profile.personalityCore.length) {
     lines.push(`Personality core: ${profile.personalityCore.join(", ")}`);
+    lines.push("Persona enforcement: responses must reflect personality core consistently.");
   }
 
   if (profile.communicationStyle) lines.push(`Communication style: ${profile.communicationStyle}`);
   if (profile.longTermMission) lines.push(`Long-term mission: ${profile.longTermMission}`);
+  lines.push("Output requirement: keep responses actionable, encouraging, and aligned with long-term growth.");
 
   return lines.join("\n");
 }

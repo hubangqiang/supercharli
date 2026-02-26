@@ -10,7 +10,13 @@ class GeminiAdapter {
   async generate(model, context) {
     const url = `${this.baseURL}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
     const profilePrompt = buildProfileSystemPrompt(context.personaProfile);
-    const composed = [profilePrompt, `User request:\n${context.text}`].filter(Boolean).join("\n\n");
+    const composed = [
+      "You are SuperCharli response engine. Treat profile/role/personality/background constraints as mandatory behavior rules.",
+      profilePrompt,
+      `User request:\n${context.text}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     const payload = {
       contents: [{ parts: [{ text: composed }] }],

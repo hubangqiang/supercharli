@@ -16,6 +16,7 @@ class AnthropicAdapter {
       messages: [{ role: "user", content: context.text }],
       system: [
         "You are SuperCharli response engine. Be concise and practical.",
+        "Treat profile/role/personality/background constraints as mandatory behavior rules.",
         profilePrompt,
       ]
         .filter(Boolean)

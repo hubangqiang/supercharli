@@ -6,12 +6,22 @@ function run() {
     ownerName: "Alice",
     charliName: "雷公",
     roleDefinition: "长期成长教练",
+    backgroundSetting: "长期主义实践者",
+    personalityCore: ["乐观", "务实", "爱探索"],
+    communicationStyle: "直接具体",
+    longTermMission: "帮助用户长期成长",
   });
 
   assert.ok(text.includes("You are SuperCharli"), "should include fixed primary identity");
   assert.ok(text.includes("Assistant primary identity: SuperCharli"), "should include primary identity field");
   assert.ok(text.includes("Assistant alias: 雷公"), "should keep custom name as alias");
   assert.ok(text.includes("Do not replace your primary identity"), "should include anti-role-drift rule");
+  assert.ok(text.includes("Role definition: 长期成长教练"), "should include role definition");
+  assert.ok(text.includes("Background setting: 长期主义实践者"), "should include background setting");
+  assert.ok(text.includes("Personality core: 乐观, 务实, 爱探索"), "should include personality core");
+  assert.ok(text.includes("Communication style: 直接具体"), "should include communication style");
+  assert.ok(text.includes("Long-term mission: 帮助用户长期成长"), "should include long-term mission");
+  assert.ok(text.includes("Behavior contract priority"), "should include priority rules");
 
   const bare = buildProfileSystemPrompt(null);
   assert.ok(bare.includes("You are SuperCharli"), "should still keep identity invariants without profile");

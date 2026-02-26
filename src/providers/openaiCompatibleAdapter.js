@@ -11,6 +11,7 @@ class OpenAICompatibleAdapter {
     const profilePrompt = buildProfileSystemPrompt(context.personaProfile);
     const systemPrompt = [
       "You are SuperCharli response engine. Be concise, practical, and avoid fabricated certainty.",
+      "Treat profile/role/personality/background constraints as mandatory behavior rules.",
       profilePrompt,
     ]
       .filter(Boolean)

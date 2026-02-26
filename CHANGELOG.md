@@ -14,3 +14,4 @@ This project follows Semantic Versioning.
 - Runtime tests covering fallback, persona regeneration, memory persistence, and severity transitions.
 - Structured route metadata and multi-level fallback chain (retry -> secondary -> minimal-safe).
 - Lightweight telemetry component for per-turn stage logs and runtime counters.
+- Snapshot backup and restore scripts with manifest checksum verification.

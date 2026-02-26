@@ -5,6 +5,8 @@
   "description": "SuperCharli runtime core skeleton",
   "scripts": {
     "demo": "node src/runtime/demoRunner.js",
-    "test": "node test/runtimeCore.test.js"
+    "test": "node test/runtimeCore.test.js && node test/snapshot.test.js",
+    "backup": "node scripts/backup-state.js",
+    "restore": "node scripts/restore-state.js"
   }
 }

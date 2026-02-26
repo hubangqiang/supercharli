@@ -9,7 +9,7 @@ This repository separates two layers clearly:
 ## Current Status
 - Principles and constitutions are established.
 - V1 planning templates are in place.
-- V1 runtime core, local persistent memory, severity state machine, and fallback chain are implemented under `src/`.
+- V1 runtime core, local persistent memory, severity state machine, fallback chain, and backup/restore baseline are implemented under `src/`.
 
 ## Repo Structure
 - `persona.toml`: machine-readable personality baseline.
@@ -45,6 +45,14 @@ You can override with:
 - Safety: persona guard with regeneration on certainty/risk violations.
 - Memory: local L1/L2 with auto-promotion and restart persistence.
 - Telemetry: per-turn stage events and counters for fallback/safety/latency tracking.
+
+## Portability
+- Create snapshot:
+  - `npm run backup`
+- Restore snapshot:
+  - `npm run restore -- backups/<snapshot-id>`
+- Backup/restore guide:
+  - `docs/guide/local-backup-restore.zh-CN.md`
 
 ## Open Source Governance
 - `CONTRIBUTING.md`: contribution workflow and quality gate.

@@ -29,6 +29,7 @@
 - `docs/guide/model-collaboration-contract.zh-CN.md`
 - `docs/guide/handoff-checklist.zh-CN.md`
 - `docs/guide/github-publish-guide.zh-CN.md`
+- `docs/guide/local-backup-restore.zh-CN.md`
 
 ## 4. 开源治理（Root）
 - `README.md`

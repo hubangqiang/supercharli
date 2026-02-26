@@ -12,7 +12,10 @@
 state/
 cache/
 data/
+backups/
 tmp-runtime-core-*/
+tmp-snapshot-test-*/
+*.bak.*
 
 # Local secrets
 .env

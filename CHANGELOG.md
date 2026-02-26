@@ -15,3 +15,5 @@ This project follows Semantic Versioning.
 - Structured route metadata and multi-level fallback chain (retry -> secondary -> minimal-safe).
 - Lightweight telemetry component for per-turn stage logs and runtime counters.
 - Snapshot backup and restore scripts with manifest checksum verification.
+- Provider adapter layer for DeepSeek/Gemini/Anthropic with configurable model refs.
+- Acceptance tests for provider parsing, registry behavior, and router fallback with injected providers.

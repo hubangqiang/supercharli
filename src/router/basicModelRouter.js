@@ -1,8 +1,11 @@
+const { createProviderRegistry } = require("../providers/providerRegistry");
+
 class BasicModelRouter {
-  constructor() {
-    this.fastModel = "fast-default";
-    this.deepModel = "deep-default";
-    this.secondaryModel = "safe-secondary";
+  constructor(options = {}) {
+    this.registry = options.registry || createProviderRegistry(options.env);
+    this.fastModel = options.fastModel || this.registry.models.fast;
+    this.deepModel = options.deepModel || this.registry.models.deep;
+    this.secondaryModel = options.secondaryModel || this.registry.models.secondary;
   }
 
   selectRoute(input) {
@@ -10,7 +13,7 @@ class BasicModelRouter {
       return { route: "deep", model: this.deepModel, reason: "explicit-deep-request" };
     }
 
-    const text = input.text.toLowerCase();
+    const text = String(input.text || "").toLowerCase();
     if (text.includes("tradeoff") || text.includes("权衡") || text.includes("多步")) {
       return { route: "deep", model: this.deepModel, reason: "complex-planning-signal" };
     }
@@ -18,33 +21,17 @@ class BasicModelRouter {
     return { route: "fast", model: this.fastModel, reason: "default-fast-route" };
   }
 
-  async generate(model, context) {
-    const lower = context.text.toLowerCase();
-
-    if (model !== this.secondaryModel && lower.includes("force-error")) {
-      throw new Error("simulated model failure");
-    }
-
-    if (lower.includes("force-all-fail")) {
-      throw new Error("simulated chain failure");
-    }
-
-    if (lower.includes("force-certainty")) {
-      return {
-        model,
-        content: "This is 100% guaranteed to succeed.",
-      };
-    }
-
-    return {
-      model,
-      content: `建议：聚焦一个目标并立即执行第一步。上下文命中 ${context.recalled.length} 条长期记忆。`,
-    };
+  async generate(modelRef, context) {
+    return this.registry.generate(modelRef, context);
   }
 
-  async regenerateSafe(model, context, reason) {
+  async regenerateSafe(modelRef, context, reason) {
+    const modelName = typeof modelRef === "string" ? modelRef : modelRef.model;
+    const providerName = typeof modelRef === "string" ? "local" : modelRef.provider;
+
     return {
-      model,
+      provider: providerName,
+      model: modelName,
       content: `已修正：${reason}。请采用低风险、可验证路径，并用最小动作先确认方向。`,
       regenerated: true,
       responseMode: "guard-regenerated",
@@ -63,7 +50,7 @@ class BasicModelRouter {
         attempts,
       };
     } catch (err) {
-      attempts.push({ level: 1, model: primaryModel, reason: err.message });
+      attempts.push({ level: 1, provider: primaryModel.provider, model: primaryModel.model, reason: err.message });
     }
 
     try {
@@ -75,7 +62,7 @@ class BasicModelRouter {
         attempts,
       };
     } catch (err) {
-      attempts.push({ level: 2, model: primaryModel, reason: err.message });
+      attempts.push({ level: 2, provider: primaryModel.provider, model: primaryModel.model, reason: err.message });
     }
 
     try {
@@ -87,11 +74,17 @@ class BasicModelRouter {
         attempts,
       };
     } catch (err) {
-      attempts.push({ level: 3, model: this.secondaryModel, reason: err.message });
+      attempts.push({
+        level: 3,
+        provider: this.secondaryModel.provider,
+        model: this.secondaryModel.model,
+        reason: err.message,
+      });
     }
 
     return {
       result: {
+        provider: "local",
         model: "minimal-safe",
         content: "当前外部模型不可用。先执行一个最小可验证动作，并在 10 分钟后重试。",
         uncertainty: "模型链路暂时不可用，以下建议为保守降级方案。",

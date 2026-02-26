@@ -45,6 +45,7 @@ You can override with:
 - Safety: persona guard with regeneration on certainty/risk violations.
 - Memory: local L1/L2 with auto-promotion and restart persistence.
 - Telemetry: per-turn stage events and counters for fallback/safety/latency tracking.
+- Provider adapters: DeepSeek / Gemini / Anthropic with unified `provider:model` config.
 
 ## Portability
 - Create snapshot:
@@ -53,6 +54,10 @@ You can override with:
   - `npm run restore -- backups/<snapshot-id>`
 - Backup/restore guide:
   - `docs/guide/local-backup-restore.zh-CN.md`
+
+## Model Provider Config
+- Guide:
+  - `docs/guide/model-provider-config.zh-CN.md`
 
 ## Open Source Governance
 - `CONTRIBUTING.md`: contribution workflow and quality gate.

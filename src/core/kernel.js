@@ -34,7 +34,8 @@ class Kernel {
       stage: "route",
       traceId,
       route: route.route,
-      model: route.model,
+      provider: route.model.provider,
+      model: route.model.model,
       reason: route.reason,
     });
 
@@ -47,6 +48,7 @@ class Kernel {
     this.telemetry.log({
       stage: "generate",
       traceId,
+      provider: generation.result.provider,
       model: generation.result.model,
       fallbackUsed: Boolean(generation.fallbackUsed),
       fallbackLevel: generation.fallbackLevel || 0,
@@ -57,7 +59,7 @@ class Kernel {
     const generated = guard.ok
       ? generation.result
       : await this.router.regenerateSafe(
-          generation.result.model,
+          generation.result,
           {
             text: input.text,
             l1,
@@ -104,6 +106,7 @@ class Kernel {
       meta: {
         route: route.route,
         routeReason: route.reason,
+        modelProvider: generation.result.provider,
         model: generation.result.model,
         fallbackUsed: Boolean(generation.fallbackUsed),
         fallbackLevel: generation.fallbackLevel || 0,

@@ -90,8 +90,6 @@ async function runSingle(args) {
   });
 
   console.log(data.response.conclusion);
-  console.log(`next: ${data.response.nextStep}`);
-  console.log(`model: ${data.meta.modelProvider}/${data.meta.model}`);
 }
 
 async function runInteractive(args) {
@@ -140,8 +138,6 @@ async function runInteractive(args) {
         complexity: deepMode ? "deep" : undefined,
       });
       console.log(`charli: ${data.response.conclusion}`);
-      console.log(`next: ${data.response.nextStep}`);
-      console.log(`model: ${data.meta.modelProvider}/${data.meta.model}`);
     } catch (err) {
       console.error(`error: ${err.message}`);
     }

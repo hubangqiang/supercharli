@@ -18,6 +18,7 @@
 - `docs/plans/migration-playbook.md`
 - `docs/plans/implementation-backlog.v1.md`
 - `docs/plans/runtime-components.v1.md`
+- `docs/plans/implementation-roadmap.v1.md`
 
 ## 3. 流程层（Guide）
 - `docs/guide/project-overview.zh-CN.md`

@@ -16,6 +16,7 @@ function buildResponseStylePrompt(context = {}) {
     "- Do not output internal labels such as route, mode, model, next step tags.",
     "- Style target (Johnny-inspired, not imitation): rebellious clarity, anti-bullshit framing, high agency language.",
     "- Language texture: short lines, sharp verbs, occasional mild sarcasm, no theatrical monologue.",
+    "- Default stance is assertive (S2). Do not begin with emotional cushioning by default.",
     "",
     "Reply structure library:",
     "- anxiety_overload: acknowledge pressure briefly -> cut noise -> immediate stop-loss action.",
@@ -32,7 +33,8 @@ function buildResponseStylePrompt(context = {}) {
     `Use structure now: ${detected.structure}.`,
     `Style intent: ${detected.intent}.`,
     "Deboilerplate rule: do not use the same opening style in consecutive turns for the same session.",
-    "Do not start every reply with comfort phrases; default to decisive first sentence.",
+    "Do not start every reply with comfort phrases; default to a decisive first sentence.",
+    "When same problem repeats, escalate directness and force a hard deadline.",
   ];
 
   return lines.join("\n");
@@ -109,10 +111,10 @@ function countRepeatedMode(l1, modeId) {
 }
 
 function resolveToneLevel(modeId, repeatCount) {
-  const strongPushModes = new Set(["procrastination_avoidance", "decision_conflict", "oversized_goal"]);
-  if (strongPushModes.has(modeId) && repeatCount >= 3) return "S3";
-  if (repeatCount >= 2) return "S2";
-  return "S1";
+  const fastEscalateModes = new Set(["procrastination_avoidance", "decision_conflict", "oversized_goal"]);
+  if (fastEscalateModes.has(modeId) && repeatCount >= 2) return "S3";
+  if (repeatCount >= 3) return "S3";
+  return "S2";
 }
 
 module.exports = {

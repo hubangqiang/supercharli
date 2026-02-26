@@ -19,6 +19,8 @@ function run() {
   );
   assert.strictEqual(repeat, 3);
   assert.strictEqual(resolveToneLevel("procrastination_avoidance", repeat), "S3");
+  assert.strictEqual(resolveToneLevel("normal_coaching", 0), "S2");
+  assert.strictEqual(resolveToneLevel("procrastination_avoidance", 2), "S3");
 
   const prompt = buildResponseStylePrompt({
     text: "我现在很焦虑，怕事业失控",
@@ -28,6 +30,7 @@ function run() {
   assert.ok(prompt.includes("Humanized response rules"), "should include humanized rules");
   assert.ok(prompt.includes("Style target (Johnny-inspired, not imitation)"), "should include johnny-inspired style target");
   assert.ok(prompt.includes("Detected user state: anxiety_overload"), "should detect anxiety state");
+  assert.ok(prompt.includes("Tone intensity: S2"), "should default to assertive S2");
   assert.ok(prompt.includes("Use structure now: anxiety_overload"), "should route structure");
   assert.ok(prompt.includes("Do not output internal labels"), "should suppress model/next labels");
 

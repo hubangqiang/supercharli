@@ -21,6 +21,7 @@
 - `docs/plans/implementation-roadmap.v1.md`
 - `docs/plans/bootstrap-tasklist.v1.md`
 - `docs/plans/readiness-check.v1.md`
+- `docs/plans/readiness-report.v1.md`
 
 ## 3. 流程层（Guide）
 - `docs/guide/project-overview.zh-CN.md`

@@ -1,9 +1,12 @@
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
 const { Kernel } = require("../src/core/kernel");
 const { InMemoryMemoryEngine } = require("../src/memory/inMemoryMemoryEngine");
+const { SQLiteMemoryEngine } = require("../src/memory/sqliteMemoryEngine");
 const { BasicModelRouter } = require("../src/router/basicModelRouter");
 
-async function run() {
+async function runCoreFlowChecks() {
   const kernel = new Kernel(new InMemoryMemoryEngine(), new BasicModelRouter());
 
   const deep = await kernel.runTurn({ sessionId: "t1", text: "请做多步权衡分析" });
@@ -26,7 +29,36 @@ async function run() {
   assert.strictEqual(p1.meta.promotedToL2, false);
   assert.strictEqual(p2.meta.promotedToL2, false);
   assert.strictEqual(p3.meta.promotedToL2, true, "third repeat should promote to L2");
+}
 
+async function runSQLitePersistenceChecks() {
+  const tmpDir = fs.mkdtempSync(path.join(process.cwd(), "tmp-runtime-core-"));
+  const dbPath = path.join(tmpDir, "memory.db");
+
+  const router = new BasicModelRouter();
+  const memoryA = new SQLiteMemoryEngine({ dbPath, threshold: 3 });
+  const kernelA = new Kernel(memoryA, router);
+
+  await kernelA.runTurn({ sessionId: "persist-1", text: "第一次拖延" });
+  await kernelA.runTurn({ sessionId: "persist-1", text: "第二次拖延" });
+  const third = await kernelA.runTurn({ sessionId: "persist-1", text: "第三次拖延" });
+  assert.strictEqual(third.meta.promotedToL2, true, "L2 promotion should persist after threshold");
+  memoryA.close();
+
+  const memoryB = new SQLiteMemoryEngine({ dbPath, threshold: 3 });
+  const l1 = memoryB.readL1("persist-1");
+  assert.strictEqual(l1.length, 3, "L1 history should survive restart");
+
+  const recalled = memoryB.recallL2("最近总在 procrastination-loop");
+  assert.ok(recalled.length >= 1, "L2 recall should survive restart");
+  memoryB.close();
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+}
+
+async function run() {
+  await runCoreFlowChecks();
+  await runSQLitePersistenceChecks();
   console.log("runtime core tests: PASS");
 }
 

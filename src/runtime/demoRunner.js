@@ -1,9 +1,12 @@
+const path = require("path");
 const { Kernel } = require("../core/kernel");
-const { InMemoryMemoryEngine } = require("../memory/inMemoryMemoryEngine");
+const { SQLiteMemoryEngine } = require("../memory/sqliteMemoryEngine");
 const { BasicModelRouter } = require("../router/basicModelRouter");
 
 async function main() {
-  const memory = new InMemoryMemoryEngine();
+  const memory = new SQLiteMemoryEngine({
+    dbPath: process.env.SUPERCHARLI_DB_PATH || path.join(process.cwd(), "data", "supercharli.db"),
+  });
   const router = new BasicModelRouter();
   const kernel = new Kernel(memory, router);
 
@@ -15,12 +18,16 @@ async function main() {
     { sessionId: "demo-1", text: "force-error to test fallback" },
   ];
 
-  for (const turn of turns) {
-    const out = await kernel.runTurn(turn);
-    console.log("\n--- TURN ---");
-    console.log("input:", turn.text);
-    console.log("response:", out.response);
-    console.log("meta:", out.meta);
+  try {
+    for (const turn of turns) {
+      const out = await kernel.runTurn(turn);
+      console.log("\n--- TURN ---");
+      console.log("input:", turn.text);
+      console.log("response:", out.response);
+      console.log("meta:", out.meta);
+    }
+  } finally {
+    memory.close();
   }
 }
 

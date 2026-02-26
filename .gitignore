@@ -11,6 +11,8 @@
 # Runtime state
 state/
 cache/
+data/
+tmp-runtime-core-*/
 
 # Local secrets
 .env

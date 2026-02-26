@@ -9,7 +9,7 @@ This repository separates two layers clearly:
 ## Current Status
 - Principles and constitutions are established.
 - V1 planning templates are in place.
-- V1 runtime core skeleton is started under `src/` with local demo path.
+- V1 runtime core and local persistent memory baseline are implemented under `src/`.
 
 ## Repo Structure
 - `persona.toml`: machine-readable personality baseline.
@@ -28,6 +28,16 @@ This repository separates two layers clearly:
 2. Read `docs/guide/project-overview.zh-CN.md`.
 3. Read `docs/guide/development-workflow.zh-CN.md`.
 4. Follow `docs/guide/model-collaboration-contract.zh-CN.md` for model-driven implementation.
+
+## Quick Start
+- Run demo:
+  - `npm run demo`
+- Run tests:
+  - `npm test`
+
+By default, demo uses local SQLite memory at `data/supercharli.db`.
+You can override with:
+- `SUPERCHARLI_DB_PATH=/absolute/path/to/memory.db npm run demo`
 
 ## Open Source Governance
 - `CONTRIBUTING.md`: contribution workflow and quality gate.

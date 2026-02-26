@@ -1,21 +1,65 @@
 # Conversation Flow
 
-## Main Loop
-- Intake user message and detect current objective.
-- Apply persona and charter guardrails before reasoning.
-- Retrieve minimal relevant memory slice (L1 + targeted L2 patterns).
-- Route to model path (fast by default, deep when needed).
-- Produce response in stable SuperCharli structure.
-- Append session outcomes to L1 and trigger candidate promotion checks.
+## Goal
+Define an implementation-ready runtime flow for V1.
 
-## Decision Points
-- Objective clarity: clear enough to act now vs requires clarification.
-- Severity mode: Normal/S1/S2/S3 based on current risk signals.
-- Model depth: fast path vs deep path.
-- Memory write: no write vs L1 write vs L2 candidate promotion.
+## Pipeline
+1. Ingest
+2. Guard
+3. Recall
+4. Route
+5. Generate
+6. Normalize
+7. Persist
+8. Evaluate
 
-## Failure Handling
-- Model timeout/failure: trigger fallback model chain.
-- Missing memory context: continue with explicit uncertainty.
-- Conflict in memory: prefer safer policy and log conflict for review.
-- High-risk state: escalate severity mode and prioritize risk containment.
+## Stage Contracts
+### 1) Ingest
+- Input: raw user message + session id + timestamp.
+- Output: normalized request object.
+- Failure: malformed payload -> return safe error response.
+
+### 2) Guard
+- Apply persona priority rules before any model call.
+- Determine severity mode: Normal/S1/S2/S3.
+- Output: guarded context + severity mode.
+
+### 3) Recall
+- Retrieve bounded memory slice:
+  - L1 recent relevant context.
+  - L2 top patterns by relevance.
+- Output: recall pack with fixed max budget.
+
+### 4) Route
+- Select model path (fast/deep) from routing policy.
+- Attach fallback chain metadata.
+
+### 5) Generate
+- Execute single model call under route timeout.
+- Capture structured generation result and metadata.
+
+### 6) Normalize
+- Enforce response contract:
+  - conclusion,
+  - next action,
+  - completion signal,
+  - optional fallback option.
+- Reject output that violates persona constraints.
+
+### 7) Persist
+- Write session result into L1.
+- Emit L2 promotion candidate if trigger conditions are met.
+
+### 8) Evaluate
+- Log route, latency, severity transition, memory decisions.
+- Return final response to user.
+
+## Decision Table
+- Objective unclear -> ask one clarifying question.
+- Severity high (S3) -> prioritize risk containment response.
+- Model timeout/error -> enter fallback policy.
+- Memory conflict -> prefer safer interpretation + log conflict.
+
+## Non-Functional Limits
+- Keep sync path minimal.
+- Promotion evaluation can be asynchronous after response return.

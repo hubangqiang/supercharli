@@ -1,16 +1,28 @@
 # Fallback Policy
 
-## Trigger Conditions
-- Primary model timeout or API error.
-- Policy mismatch for required capability.
-- Provider-level instability detected.
+## Objective
+Guarantee graceful degradation when model/provider failures occur.
 
-## Fallback Chain
-- Step 1: retry primary once under bounded timeout.
-- Step 2: switch to configured secondary model.
-- Step 3: switch to safe minimal response mode if chain fails.
+## Triggers
+- timeout,
+- API/provider error,
+- capability mismatch for current route.
 
-## User-visible Behavior
-- Keep tone and identity stable during fallback.
-- Mark uncertainty when response quality may be reduced.
-- Continue with actionable guidance whenever possible.
+## Chain
+1. Retry primary once with bounded timeout.
+2. Switch to secondary model.
+3. Switch to minimal safe response mode.
+
+## Minimal Safe Response Mode
+- Keep identity/tone stable.
+- Provide best-effort actionable next step.
+- State uncertainty clearly.
+
+## Stop Conditions
+- If all chain steps fail, return explicit degraded message with recovery hint.
+
+## Telemetry
+Log:
+- trigger reason,
+- fallback level reached,
+- final response mode.

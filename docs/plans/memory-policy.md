@@ -1,28 +1,42 @@
 # Memory Policy
 
-## L1 Rules
-- L1 is session-scoped working memory for active dialogue continuity.
-- L1 may contain uncertain hypotheses, but each item must carry confidence context.
-- L1 stores only decision-relevant context, not all conversational noise.
-- L1 should answer three questions at any point:
-  - what is the current objective,
-  - what is the next action,
-  - what is the completion signal.
+## Purpose
+Define implementation-ready memory behavior for L1/L2 in V1.
 
-## L2 Rules
-- L2 is long-term memory for durable, reusable behavior-result patterns.
-- L2 is local-sovereign and model-independent.
-- L2 must not store raw secrets, transient emotions, or unverified accusations.
-- L2 must preserve core temperament constraints.
+## L1 (Session Memory)
+- Scope: current session continuity.
+- Content: objective, next action, completion criteria, critical context.
+- Retention: short-lived, session-scoped.
+- Rule: keep only decision-relevant items.
 
-## Promotion / Pruning
-- Promotion trigger (default): repeated high-value pattern appears >= 3 times within a practical window.
-- Promotion path: L1 event -> candidate summary -> conflict check -> L2 write.
-- Promotion criteria:
-  - future decision utility,
-  - recurrence across contexts,
-  - consistency with charter constraints.
-- Pruning policy:
-  - stale low-value L2 entries are down-ranked,
-  - contradictory entries are condition-scoped or revised,
-  - irreversible deletion is avoided when archival is possible.
+## L2 (Long-term Memory)
+- Scope: reusable behavior-result patterns across sessions.
+- Content: stable patterns, constraints, lessons.
+- Rule: local sovereignty; model-independent.
+- Prohibited: secrets, transient emotion, unverified personal accusations.
+
+## Promotion Logic (L1 -> L2)
+- Trigger baseline:
+  - repeated pattern >= 3,
+  - useful for future decisions,
+  - compatible with charter constraints.
+- Promotion steps:
+  1. detect candidate,
+  2. summarize pattern,
+  3. run conflict check,
+  4. write L2 entry.
+
+## Conflict Handling
+- If new pattern conflicts with existing L2:
+  - keep safer interpretation as default,
+  - attach condition scope,
+  - mark for review in evaluation cycle.
+
+## Pruning / Down-ranking
+- Down-rank stale low-impact entries.
+- Prefer reversible archival over hard delete.
+- Re-promote only if recurrence returns.
+
+## Performance Rules
+- Memory recall must be bounded by budget.
+- Promotion processing can run asynchronously.

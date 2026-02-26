@@ -1,16 +1,27 @@
 # Model Routing Policy
 
-## Route Strategy
-- Default route: fast model for interactive response latency.
-- Deep route: stronger model for high-complexity reasoning.
-- All routes must pass the same persona/memory guardrails.
+## Objective
+Select model depth by task complexity while preserving identity consistency.
 
-## Upgrade Conditions
-- Task involves multi-step tradeoff analysis.
-- Stakes are high and error cost is significant.
-- User requests deep reasoning explicitly.
+## Route Types
+- Fast Route: default for interactive latency.
+- Deep Route: for complex multi-step reasoning.
 
-## Cost Guardrails
-- Prefer fast route unless upgrade condition is met.
-- Limit deep-route escalation for repetitive low-value queries.
-- Always maintain fallback chain to avoid hard stops.
+## Route Selection
+Choose Deep Route when any condition matches:
+- explicit deep reasoning request,
+- high-stakes decision tradeoff,
+- complex multi-constraint planning.
+Otherwise use Fast Route.
+
+## Guardrail Rule
+Routing changes reasoning depth only.
+It must not change persona constraints or memory governance.
+
+## Cost and Latency Guardrails
+- Fast route is default.
+- Deep route escalation should be purposeful and bounded.
+- Route decision and latency must be logged for tuning.
+
+## Output Consistency
+Both routes must satisfy same response contract.

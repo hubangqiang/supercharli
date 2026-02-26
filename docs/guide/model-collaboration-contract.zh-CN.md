@@ -6,6 +6,8 @@
 ## 输入契约
 每个模型接手前必须先阅读：
 - `persona.toml`
+- `config/charli.profile.base.json`
+- `src/providers/responseStylePrompt.js`
 - `docs/principles/product-charter.zh-CN.md`
 - `docs/principles/product-constitution.zh-CN.md`
 - `docs/principles/engineering-constitution.zh-CN.md`
@@ -23,3 +25,4 @@
 - 换模型不换原则。
 - 换模型不改项目边界。
 - 换模型不破坏已有文档体系。
+- 换模型仍要遵守“感性+理性交织、按场景路由回复结构、限制模板化输出”的统一对话契约。

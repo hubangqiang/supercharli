@@ -17,15 +17,10 @@ function applyPersonaGuard(text, severity) {
 }
 
 function normalizeResponse(generated, severity) {
-  const prefix = {
-    normal: "先稳住节奏，",
-    s1: "你现在有压力但可控，",
-    s2: "先停掉分散任务，",
-    s3: "现在先止损，",
-  }[severity];
+  const conclusion = String(generated.content || "").trim() || "先收拢问题，我们从一个最小动作开始。";
 
   return {
-    conclusion: `${prefix}${generated.content}`,
+    conclusion,
     nextStep: "在 30 分钟内完成一个最小动作，并记录结果。",
     completionSignal: "你能明确说出：已完成动作 + 下一步时间点。",
     fallbackOption: "如果阻力大，先做 10 分钟版本并保留连续性。",

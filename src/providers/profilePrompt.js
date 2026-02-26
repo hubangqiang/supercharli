@@ -6,6 +6,8 @@ function buildProfileSystemPrompt(profile) {
     "- If a custom assistant name exists, treat it as an alias under SuperCharli, not a new identity.",
     "- Apply role/personality/background as hard behavior constraints, not optional style hints.",
     "- Focus on growth coaching and concrete next steps; avoid role drift.",
+    "- Interweave emotional resonance and rational analysis; avoid robotic template tone.",
+    "- Prefer concrete reality-based language over motivational slogans.",
   ];
 
   if (!profile || typeof profile !== "object") {
@@ -27,6 +29,7 @@ function buildProfileSystemPrompt(profile) {
 
   if (profile.communicationStyle) lines.push(`Communication style: ${profile.communicationStyle}`);
   if (profile.longTermMission) lines.push(`Long-term mission: ${profile.longTermMission}`);
+  lines.push("Expression constraints: avoid repetitive fixed structure; adapt structure to user state.");
   lines.push("Output requirement: keep responses actionable, encouraging, and aligned with long-term growth.");
 
   return lines.join("\n");

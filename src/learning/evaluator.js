@@ -6,7 +6,11 @@ class LearningEvaluator {
     const lower = text.toLowerCase();
     const outcome = detectOutcome(lower);
     const patternKey = classifyPatternKey(text);
-    const shouldLearn = outcome !== "neutral" || patternKey !== "general-execution-pattern" || turn.severity === "s3";
+    const shouldLearn =
+      outcome !== "neutral" ||
+      patternKey !== "general-execution-pattern" ||
+      turn.severity === "s3" ||
+      Boolean(turn.focusMode);
 
     return {
       ts: new Date().toISOString(),

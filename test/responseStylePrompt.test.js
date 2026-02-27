@@ -27,6 +27,7 @@ function run() {
   const prompt = buildResponseStylePrompt({
     text: "我现在很焦虑，怕事业失控",
     l1: [{ text: "之前也在焦虑" }],
+    focusMode: true,
   });
 
   assert.ok(prompt.includes("Humanized response rules"), "should include humanized rules");
@@ -41,6 +42,7 @@ function run() {
   assert.ok(prompt.includes("policy bias"), "should include policy bias");
   assert.ok(prompt.includes("Use structure now: anxiety_overload"), "should route structure");
   assert.ok(prompt.includes("Do not output internal labels"), "should suppress model/next labels");
+  assert.ok(prompt.includes("Focus mode (work execution)"), "should include focus mode section");
 
   console.log("response style prompt tests: PASS");
 }

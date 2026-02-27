@@ -49,6 +49,16 @@ function buildResponseStylePrompt(context = {}) {
     "Avoid pushy phrasing such as: '别绕了', '马上给我做', '别废话'.",
   ];
 
+  if (context.focusMode) {
+    lines.push(
+      "",
+      "Focus mode (work execution):",
+      "- Prioritize delivery quality, risk control, and completion criteria.",
+      "- Provide a structured mini-plan: objective, key checks, and immediate next action.",
+      "- Keep language concise and task-oriented.",
+    );
+  }
+
   return lines.join("\n");
 }
 
@@ -174,6 +184,7 @@ function buildResponseStylePromptShort(context = {}) {
   return [
     "Style runtime:",
     `- Mode: ${detected.id}; tone: ${tone}; stage: ${stage}; bias: ${bias}.`,
+    context.focusMode ? "- Focus mode: ON (work execution priority)." : "- Focus mode: OFF.",
     "- Use concise professional sentences, one action max, and allow one clarification question only when needed.",
     "- Keep respect boundaries: no insults, no profanity.",
   ].join("\n");

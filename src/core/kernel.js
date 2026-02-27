@@ -17,10 +17,12 @@ class Kernel {
     const traceId = crypto.randomUUID();
     const started = Date.now();
     this.telemetry.log({ stage: "ingest", traceId, sessionId: input.sessionId });
+    const focusMode = isWorkFocusRequest(input.text);
 
     const severityInfo = this.severity.resolveDetailed(input);
     const severity = severityInfo.severity;
     this.telemetry.log({ stage: "severity", traceId, ...severityInfo });
+    this.telemetry.log({ stage: "focus", traceId, focusMode });
 
     const l1 = this.memory.readL1(input.sessionId);
     const recalled = this.memory.recallL2(input.text);
@@ -39,18 +41,19 @@ class Kernel {
       this.mind && typeof this.mind.prepareTurn === "function"
         ? this.mind.prepareTurn({
             text: input.text,
-            complexity: input.complexity,
+            complexity: focusMode ? "deep" : input.complexity,
             severity,
             riskSignals: input.riskSignals,
             l1,
             recalled,
             l3,
             l4,
+            focusMode,
           })
         : null;
 
-    const effectiveComplexity = mindCtx?.thinking?.complexity || input.complexity;
-    const route = this.router.selectRoute({ ...input, complexity: effectiveComplexity });
+    const effectiveComplexity = focusMode ? "deep" : mindCtx?.thinking?.complexity || input.complexity;
+    const route = this.router.selectRoute({ ...input, complexity: effectiveComplexity, focusMode });
     this.telemetry.log({
       stage: "route",
       traceId,
@@ -76,6 +79,7 @@ class Kernel {
       workspace: mindCtx?.workspace?.blocks,
       l3,
       l4,
+      focusMode,
     });
     this.telemetry.log({
       stage: "generate",
@@ -133,7 +137,7 @@ class Kernel {
 
     const latencyMs = Date.now() - started;
 
-    const activeLearning = isActiveLearningRequest(input.text);
+    const activeLearning = isActiveLearningRequest(input.text) || focusMode;
     let learning = null;
     if (this.learner && typeof this.learner.observeTurn === "function") {
       learning = this.learner.observeTurn({
@@ -143,6 +147,7 @@ class Kernel {
         route: route.route,
         fallbackUsed: Boolean(generation.fallbackUsed),
         activeLearning,
+        focusMode,
       });
       this.telemetry.log({
         stage: "learn",
@@ -188,6 +193,7 @@ class Kernel {
         thinkingReason: mindCtx?.thinking?.reason,
         selfAuditStatus: selfAudit?.status,
         activeLearningRequested: activeLearning,
+        focusMode,
       },
     };
   }
@@ -203,6 +209,21 @@ function isActiveLearningRequest(text) {
     /总结(一下|下)?/,
     /learn\b/,
     /reflect\b/,
+  ];
+  return patterns.some((p) => p.test(s));
+}
+
+function isWorkFocusRequest(text) {
+  const s = String(text || "").toLowerCase();
+  if (!s) return false;
+  const patterns = [
+    /具体工作/,
+    /工作/,
+    /项目/,
+    /开发/,
+    /编码|代码|bug|调试|测试/,
+    /需求|排期|里程碑|交付|上线|发布/,
+    /\b(pr|merge|review|deploy|release|roadmap|sprint|ticket)\b/,
   ];
   return patterns.some((p) => p.test(s));
 }

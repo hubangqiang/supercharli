@@ -44,15 +44,15 @@ function enforceHardEnding(text, severity) {
   const endingIsQuestion = /[？?]\s*$/.test(trimmed) || softQuestionTail.test(trimmed);
   if (!endingIsQuestion) return trimmed;
 
-  const hardCloseBySeverity = {
-    normal: "别绕了，现在选一个方向并立刻动手。",
-    s1: "先别纠结，30分钟内交付一个可见结果。",
-    s2: "停掉犹豫，马上执行第一步，做完再汇报。",
-    s3: "现在就止损：立刻执行最小动作，不再讨论。",
+  const closeBySeverity = {
+    normal: "请先确定一个方向，并开始最小可验证动作。",
+    s1: "建议先稳定节奏，在30分钟内完成一个最小可见结果。",
+    s2: "请立即执行第一步，并在完成后记录结果与下一步时间点。",
+    s3: "当前优先止损：请先执行最小风险动作，再评估后续路径。",
   };
 
   const base = trimmed.replace(/[？?]+\s*$/, "").replace(/\s+$/, "");
-  return `${base}。${hardCloseBySeverity[severity] || hardCloseBySeverity.normal}`;
+  return `${base}。${closeBySeverity[severity] || closeBySeverity.normal}`;
 }
 
 module.exports = { applyPersonaGuard, normalizeResponse, enforceHardEnding };

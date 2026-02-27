@@ -14,7 +14,7 @@ function run() {
 
   const hardEnded = enforceHardEnding("你是想继续拖延还是现在开始？", "s2");
   assert.ok(!/[？?]\s*$/.test(hardEnded), "should remove question ending");
-  assert.ok(/马上执行第一步/.test(hardEnded), "should append hard action close");
+  assert.ok(/请立即执行第一步/.test(hardEnded), "should append jarvis-style action close");
 
   console.log("policies tests: PASS");
 }

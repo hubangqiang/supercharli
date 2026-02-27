@@ -2,6 +2,7 @@ const { StageMachine } = require("./stageMachine");
 const { LearningEvaluator } = require("./evaluator");
 const { LearningPolicyUpdater } = require("./policyUpdater");
 const { runConsolidationJob } = require("./jobs/consolidationJob");
+const { evaluateLearningGates } = require("./gates");
 
 class Learner {
   constructor(options = {}) {
@@ -20,6 +21,8 @@ class Learner {
       options.policyUpdater || new LearningPolicyUpdater(persisted?.policy || options.policy);
     this.events = this.store && typeof this.store.listRecentEvents === "function" ? this.store.listRecentEvents() : [];
     this.maxEventBuffer = options.maxEventBuffer || 200;
+    this.gateConfig = options.gateConfig || {};
+    this.autoActivate = Boolean(options.autoActivate);
   }
 
   observeTurn(turn) {
@@ -34,6 +37,30 @@ class Learner {
 
     const stage = this.stageMachine.observe(event);
     const policy = this.policyUpdater.apply(event, stage.stage);
+    const metrics = this.store && typeof this.store.summarizeRecentOutcomes === "function"
+      ? this.store.summarizeRecentOutcomes(this.gateConfig.windowSize || 40)
+      : summarizeRecentOutcomes(this.events, this.gateConfig.windowSize || 40);
+    const gate = evaluateLearningGates(metrics, this.gateConfig);
+
+    if (this.store && event.shouldLearn && typeof this.store.saveCandidate === "function") {
+      this.store.saveCandidate({
+        createdAt: new Date().toISOString(),
+        event,
+        gates: gate,
+        proposedPolicy: policy.policy,
+        status: gate.pass ? "approved" : "pending",
+      });
+    }
+
+    let policyVersion = null;
+    if (this.autoActivate && gate.pass && this.store && typeof this.store.savePolicyVersion === "function") {
+      policyVersion = this.store.savePolicyVersion({
+        policy: policy.policy,
+        gates: gate,
+        note: "auto-activated-by-gates",
+      });
+    }
+
     if (this.store && typeof this.store.saveState === "function") {
       this.store.saveState({
         stage: stage.stage,
@@ -46,6 +73,8 @@ class Learner {
       event,
       stage,
       policy,
+      gate,
+      policyVersion,
     };
   }
 
@@ -65,6 +94,23 @@ class Learner {
       eventCount: this.events.length,
     };
   }
+}
+
+function summarizeRecentOutcomes(events, windowSize) {
+  const rows = (Array.isArray(events) ? events : []).slice(-windowSize);
+  const total = rows.length;
+  const success = rows.filter((r) => r.outcome === "success").length;
+  const failure = rows.filter((r) => r.outcome === "failure").length;
+  const repeated = rows.filter((r) => r.patternKey && r.patternKey !== "general-execution-pattern").length;
+  return {
+    total,
+    success,
+    failure,
+    repeated,
+    successRate: total ? success / total : 0,
+    recurrenceRate: total ? repeated / total : 0,
+    failureRate: total ? failure / total : 0,
+  };
 }
 
 module.exports = { Learner };

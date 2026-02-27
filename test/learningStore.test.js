@@ -14,15 +14,21 @@ function run() {
   learnerA.observeTurn({ text: "我又拖延了", severity: "s2", route: "fast" });
   learnerA.observeTurn({ text: "done，完成第一步", severity: "s1", route: "fast" });
   const snapA = learnerA.snapshot();
+  const candsA = storeA.listCandidates(10);
+  assert.ok(candsA.length >= 1, "should persist learning candidates");
+  const v = storeA.savePolicyVersion({ policy: snapA.policy, gates: { pass: true }, note: "manual-test" });
+  assert.ok(v >= 1, "should save policy version");
   storeA.close();
 
   const storeB = new SQLiteLearningStore({ dbPath, scope: "s1" });
   const learnerB = new Learner({ store: storeB });
   const snapB = learnerB.snapshot();
+  const latest = storeB.getLatestPolicyVersion();
 
   assert.ok(snapB.eventCount >= 2, "events should persist");
   assert.strictEqual(snapB.stage.stage, snapA.stage.stage, "stage should persist");
   assert.ok(Math.abs(snapB.policy.directness - snapA.policy.directness) < 1e-9, "policy should persist");
+  assert.ok(latest && latest.version >= 1, "policy version should persist");
 
   storeB.close();
   fs.rmSync(tmp, { recursive: true, force: true });

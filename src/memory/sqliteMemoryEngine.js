@@ -58,6 +58,21 @@ class SQLiteMemoryEngine {
         created_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS l3_timeline (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        phase TEXT NOT NULL,
+        event_summary TEXT NOT NULL,
+        lesson TEXT NOT NULL,
+        confidence REAL NOT NULL DEFAULT 0.6,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS l4_identity (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_l1_session_id ON l1_events(session_id);
     `);
     this._ensureL2Columns();
@@ -66,6 +81,7 @@ class SQLiteMemoryEngine {
       CREATE INDEX IF NOT EXISTS idx_l2_strength ON l2_patterns(strength DESC, updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_recon_candidates_status_created
       ON memory_reconsolidation_candidates(status, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_l3_created_at ON l3_timeline(created_at DESC);
     `);
 
     this.readL1Stmt = this.db.prepare(`
@@ -164,6 +180,32 @@ class SQLiteMemoryEngine {
       SET strength = MAX(0.1, strength - (? * MAX(0, julianday('now') - julianday(updated_at))))
       WHERE updated_at IS NOT NULL
     `);
+
+    this.insertL3Stmt = this.db.prepare(`
+      INSERT INTO l3_timeline (phase, event_summary, lesson, confidence, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    this.readL3Stmt = this.db.prepare(`
+      SELECT phase, event_summary AS eventSummary, lesson, confidence, created_at AS createdAt
+      FROM l3_timeline
+      ORDER BY created_at DESC
+      LIMIT ?
+    `);
+
+    this.upsertL4Stmt = this.db.prepare(`
+      INSERT INTO l4_identity (key, value, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = excluded.updated_at
+    `);
+
+    this.readL4Stmt = this.db.prepare(`
+      SELECT key, value, updated_at AS updatedAt
+      FROM l4_identity
+      ORDER BY key ASC
+    `);
   }
 
   readL1(sessionId) {
@@ -235,6 +277,40 @@ class SQLiteMemoryEngine {
 
   applyMemoryDecay() {
     this.applyDecayStmt.run(this.decayPerDay);
+  }
+
+  writeL3Milestone(milestone = {}) {
+    this.insertL3Stmt.run(
+      milestone.phase || "unknown",
+      String(milestone.eventSummary || ""),
+      String(milestone.lesson || ""),
+      Number(milestone.confidence || 0.6),
+      milestone.createdAt || new Date().toISOString(),
+    );
+  }
+
+  readL3Milestones(limit = 10) {
+    return this.readL3Stmt.all(limit);
+  }
+
+  upsertL4Identity(identity = {}) {
+    const now = new Date().toISOString();
+    for (const [key, value] of Object.entries(identity)) {
+      this.upsertL4Stmt.run(key, JSON.stringify(value), now);
+    }
+  }
+
+  readL4Identity() {
+    const rows = this.readL4Stmt.all();
+    const out = {};
+    for (const row of rows) {
+      try {
+        out[row.key] = JSON.parse(row.value);
+      } catch {
+        out[row.key] = row.value;
+      }
+    }
+    return out;
   }
 
   close() {

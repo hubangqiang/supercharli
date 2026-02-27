@@ -41,6 +41,35 @@ class SQLiteLearningStore {
       ORDER BY id DESC
       LIMIT ?
     `);
+
+    this.insertCandidateStmt = this.db.prepare(`
+      INSERT INTO learning_candidates
+      (scope, created_at, event_json, gate_json, proposed_policy_json, status)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    this.listCandidatesStmt = this.db.prepare(`
+      SELECT id, created_at AS createdAt, event_json AS eventJson, gate_json AS gateJson,
+             proposed_policy_json AS proposedPolicyJson, status
+      FROM learning_candidates
+      WHERE scope = ?
+      ORDER BY id DESC
+      LIMIT ?
+    `);
+
+    this.insertPolicyVersionStmt = this.db.prepare(`
+      INSERT INTO learning_policy_versions
+      (scope, version, created_at, policy_json, gate_json, note)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    this.getLatestPolicyVersionStmt = this.db.prepare(`
+      SELECT version, created_at AS createdAt, policy_json AS policyJson, gate_json AS gateJson, note
+      FROM learning_policy_versions
+      WHERE scope = ?
+      ORDER BY version DESC
+      LIMIT 1
+    `);
   }
 
   appendEvent(event = {}) {
@@ -87,6 +116,71 @@ class SQLiteLearningStore {
     }));
   }
 
+  saveCandidate(candidate = {}) {
+    this.insertCandidateStmt.run(
+      this.scope,
+      candidate.createdAt || new Date().toISOString(),
+      JSON.stringify(candidate.event || {}),
+      JSON.stringify(candidate.gates || {}),
+      JSON.stringify(candidate.proposedPolicy || {}),
+      candidate.status || "pending",
+    );
+  }
+
+  listCandidates(limit = 20) {
+    return this.listCandidatesStmt.all(this.scope, limit).map((r) => ({
+      id: r.id,
+      createdAt: r.createdAt,
+      event: parseJson(r.eventJson, {}),
+      gates: parseJson(r.gateJson, {}),
+      proposedPolicy: parseJson(r.proposedPolicyJson, {}),
+      status: r.status,
+    }));
+  }
+
+  savePolicyVersion(payload = {}) {
+    const latest = this.getLatestPolicyVersionStmt.get(this.scope);
+    const nextVersion = (latest?.version || 0) + 1;
+    this.insertPolicyVersionStmt.run(
+      this.scope,
+      nextVersion,
+      payload.createdAt || new Date().toISOString(),
+      JSON.stringify(payload.policy || {}),
+      JSON.stringify(payload.gates || {}),
+      payload.note || "policy-activation",
+    );
+    return nextVersion;
+  }
+
+  getLatestPolicyVersion() {
+    const row = this.getLatestPolicyVersionStmt.get(this.scope);
+    if (!row) return null;
+    return {
+      version: row.version,
+      createdAt: row.createdAt,
+      policy: parseJson(row.policyJson, {}),
+      gates: parseJson(row.gateJson, {}),
+      note: row.note,
+    };
+  }
+
+  summarizeRecentOutcomes(limit = 30) {
+    const rows = this.listRecentEvents(limit);
+    const total = rows.length;
+    const success = rows.filter((r) => r.outcome === "success").length;
+    const failure = rows.filter((r) => r.outcome === "failure").length;
+    const repeated = rows.filter((r) => r.patternKey && r.patternKey !== "general-execution-pattern").length;
+    return {
+      total,
+      success,
+      failure,
+      repeated,
+      successRate: total ? success / total : 0,
+      recurrenceRate: total ? repeated / total : 0,
+      failureRate: total ? failure / total : 0,
+    };
+  }
+
   close() {
     this.db.close();
   }
@@ -116,6 +210,30 @@ class SQLiteLearningStore {
 
       CREATE INDEX IF NOT EXISTS idx_learning_events_scope_ts
       ON learning_events(scope, ts DESC);
+
+      CREATE TABLE IF NOT EXISTS learning_candidates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        event_json TEXT NOT NULL,
+        gate_json TEXT NOT NULL,
+        proposed_policy_json TEXT NOT NULL,
+        status TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_learning_candidates_scope_created
+      ON learning_candidates(scope, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS learning_policy_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        policy_json TEXT NOT NULL,
+        gate_json TEXT NOT NULL,
+        note TEXT NOT NULL,
+        UNIQUE(scope, version)
+      );
     `);
   }
 }

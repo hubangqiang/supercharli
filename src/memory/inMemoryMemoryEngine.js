@@ -12,6 +12,8 @@ class InMemoryMemoryEngine {
     this.l1Limit = options.l1Limit || 20;
     this.scoreThreshold = options.scoreThreshold || 0.65;
     this.reconsolidationCandidates = [];
+    this.l3 = [];
+    this.l4 = {};
   }
 
   readL1(sessionId) {
@@ -86,6 +88,29 @@ class InMemoryMemoryEngine {
       lastRecalledAt: current?.lastRecalledAt || null,
     });
     return true;
+  }
+
+  writeL3Milestone(milestone = {}) {
+    this.l3.push({
+      phase: milestone.phase || "unknown",
+      eventSummary: String(milestone.eventSummary || ""),
+      lesson: String(milestone.lesson || ""),
+      confidence: Number(milestone.confidence || 0.6),
+      createdAt: milestone.createdAt || new Date().toISOString(),
+    });
+    this.l3 = this.l3.slice(-200);
+  }
+
+  readL3Milestones(limit = 10) {
+    return this.l3.slice(-limit).reverse();
+  }
+
+  upsertL4Identity(identity = {}) {
+    this.l4 = { ...this.l4, ...identity };
+  }
+
+  readL4Identity() {
+    return { ...this.l4 };
   }
 }
 

@@ -4,12 +4,13 @@ const { SeverityStateMachine } = require("./severityStateMachine");
 const { Telemetry } = require("../observability/telemetry");
 
 class Kernel {
-  constructor(memoryEngine, router, severityMachine = new SeverityStateMachine(), telemetry = new Telemetry(), learner = null) {
+  constructor(memoryEngine, router, severityMachine = new SeverityStateMachine(), telemetry = new Telemetry(), learner = null, mind = null) {
     this.memory = memoryEngine;
     this.router = router;
     this.severity = severityMachine;
     this.telemetry = telemetry;
     this.learner = learner;
+    this.mind = mind;
   }
 
   async runTurn(input) {
@@ -30,7 +31,20 @@ class Kernel {
       l2RecallCount: recalled.length,
     });
 
-    const route = this.router.selectRoute(input);
+    const mindCtx =
+      this.mind && typeof this.mind.prepareTurn === "function"
+        ? this.mind.prepareTurn({
+            text: input.text,
+            complexity: input.complexity,
+            severity,
+            riskSignals: input.riskSignals,
+            l1,
+            recalled,
+          })
+        : null;
+
+    const effectiveComplexity = mindCtx?.thinking?.complexity || input.complexity;
+    const route = this.router.selectRoute({ ...input, complexity: effectiveComplexity });
     this.telemetry.log({
       stage: "route",
       traceId,
@@ -51,6 +65,9 @@ class Kernel {
       personaProfile: input.personaProfile,
       learningStage: learningSnapshot?.stage?.stage,
       learningPolicy: learningSnapshot?.policy,
+      metacognitiveConfidence: mindCtx?.metacognition?.confidence,
+      thinkingMode: mindCtx?.thinking?.mode,
+      workspace: mindCtx?.workspace?.blocks,
     });
     this.telemetry.log({
       stage: "generate",
@@ -125,6 +142,17 @@ class Kernel {
       });
     }
 
+    const selfAudit =
+      this.mind && typeof this.mind.finalizeTurn === "function" ? this.mind.finalizeTurn(learning) : null;
+    if (selfAudit) {
+      this.telemetry.log({
+        stage: "self-audit",
+        traceId,
+        status: selfAudit.status,
+        findings: selfAudit.findings?.length || 0,
+      });
+    }
+
     this.telemetry.log({ stage: "done", traceId, latencyMs });
 
     return {
@@ -145,6 +173,10 @@ class Kernel {
         latencyMs,
         learningStage: learning?.stage?.stage,
         policySnapshot: learning?.policy?.policy,
+        metacognitiveConfidence: mindCtx?.metacognition?.confidence,
+        thinkingMode: mindCtx?.thinking?.mode,
+        thinkingReason: mindCtx?.thinking?.reason,
+        selfAuditStatus: selfAudit?.status,
       },
     };
   }

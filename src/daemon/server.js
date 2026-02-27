@@ -5,6 +5,7 @@ const { Kernel } = require("../core/kernel");
 const { SQLiteMemoryEngine } = require("../memory/sqliteMemoryEngine");
 const { Learner } = require("../learning/learner");
 const { SQLiteLearningStore } = require("../learning/sqliteLearningStore");
+const { MindRuntime } = require("../mind");
 const { Telemetry } = require("../observability/telemetry");
 const { BasicModelRouter } = require("../router/basicModelRouter");
 const { loadUserProfile } = require("../runtime/userProfile");
@@ -27,7 +28,8 @@ function createDaemonServer(options = {}) {
   const router = new BasicModelRouter({ env: options.env });
   const learningStore = new SQLiteLearningStore({ dbPath, scope: "daemon-main" });
   const learner = new Learner({ store: learningStore });
-  const kernel = new Kernel(memory, router, undefined, telemetry, learner);
+  const mind = new MindRuntime();
+  const kernel = new Kernel(memory, router, undefined, telemetry, learner, mind);
 
   const server = net.createServer((socket) => {
     socket.setEncoding("utf8");
@@ -127,6 +129,7 @@ async function handleRequest(message, kernel, telemetry, env) {
       personaViolationCount: telemetry.getCount("persona_violation_count"),
       learningStage: learningSnapshot?.stage?.stage || "apprentice",
       learningEventCount: learningSnapshot?.eventCount || 0,
+      learningPolicy: learningSnapshot?.policy || null,
     };
   }
 

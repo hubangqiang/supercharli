@@ -41,8 +41,29 @@ async function runKernelMindHookCheck() {
   assert.ok(out.meta.selfAuditStatus, "should include self audit status");
 }
 
+function runMindFinalizeGateCheck() {
+  const mind = new MindRuntime();
+  mind.finalizeTurn({
+    stage: { stage: "pattern" },
+    gate: { pass: true },
+    policyVersion: 1,
+    policy: { policy: { directness: 0.8, actionPressure: 0.8, reflectionDepth: 0.4 } },
+  });
+  mind.finalizeTurn({
+    stage: { stage: "transfer" },
+    gate: { pass: false },
+    policyVersion: 1,
+    policy: { policy: { directness: 0.81, actionPressure: 0.79, reflectionDepth: 0.45 } },
+  });
+  const model = mind.snapshot();
+  assert.strictEqual(model.stage, "transfer");
+  assert.strictEqual(model.gatePassCount, 1);
+  assert.strictEqual(model.gateFailCount, 1);
+}
+
 async function run() {
   runMindRuntimeChecks();
+  runMindFinalizeGateCheck();
   await runKernelMindHookCheck();
   console.log("mind tests: PASS");
 }

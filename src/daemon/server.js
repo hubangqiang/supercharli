@@ -5,7 +5,7 @@ const { Kernel } = require("../core/kernel");
 const { SQLiteMemoryEngine } = require("../memory/sqliteMemoryEngine");
 const { Learner } = require("../learning/learner");
 const { SQLiteLearningStore } = require("../learning/sqliteLearningStore");
-const { MindRuntime } = require("../mind");
+const { MindRuntime, SQLiteSelfModelStore } = require("../mind");
 const { Telemetry } = require("../observability/telemetry");
 const { BasicModelRouter } = require("../router/basicModelRouter");
 const { loadUserProfile } = require("../runtime/userProfile");
@@ -28,7 +28,8 @@ function createDaemonServer(options = {}) {
   const router = new BasicModelRouter({ env: options.env });
   const learningStore = new SQLiteLearningStore({ dbPath, scope: "daemon-main" });
   const learner = new Learner({ store: learningStore });
-  const mind = new MindRuntime();
+  const selfModelStore = new SQLiteSelfModelStore({ dbPath, scope: "daemon-main" });
+  const mind = new MindRuntime({ selfModelStore });
   const kernel = new Kernel(memory, router, undefined, telemetry, learner, mind);
 
   const server = net.createServer((socket) => {
@@ -82,6 +83,9 @@ function createDaemonServer(options = {}) {
           learningStore.close();
         } catch {}
         try {
+          selfModelStore.close();
+        } catch {}
+        try {
           if (fs.existsSync(socketPath)) fs.rmSync(socketPath, { force: true });
         } catch {}
         resolve();
@@ -122,6 +126,7 @@ async function handleRequest(message, kernel, telemetry, env) {
   if (type === "metrics") {
     const kernelLearner = kernel.learner;
     const learningSnapshot = kernelLearner && typeof kernelLearner.snapshot === "function" ? kernelLearner.snapshot() : null;
+    const selfModel = kernel.mind && typeof kernel.mind.snapshot === "function" ? kernel.mind.snapshot() : null;
     return {
       type: "metrics",
       turnCount: telemetry.getCount("turn_count"),
@@ -130,6 +135,10 @@ async function handleRequest(message, kernel, telemetry, env) {
       learningStage: learningSnapshot?.stage?.stage || "apprentice",
       learningEventCount: learningSnapshot?.eventCount || 0,
       learningPolicy: learningSnapshot?.policy || null,
+      selfModelStage: selfModel?.stage || "apprentice",
+      selfModelGatePassCount: selfModel?.gatePassCount || 0,
+      selfModelGateFailCount: selfModel?.gateFailCount || 0,
+      selfModelLastAuditStatus: selfModel?.lastAuditStatus || "healthy",
     };
   }
 

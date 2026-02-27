@@ -2,6 +2,7 @@ const { assessMetacognition } = require("./metacognition");
 const { selectThinkingMode } = require("./thinkingRouter");
 const { buildGlobalWorkspace } = require("./globalWorkspace");
 const { InMemorySelfModelStore } = require("./selfModelStore");
+const { SQLiteSelfModelStore } = require("./sqliteSelfModelStore");
 const { runSelfAudit } = require("./selfAuditJob");
 
 class MindRuntime {
@@ -34,11 +35,26 @@ class MindRuntime {
   }
 
   finalizeTurn(learning = {}) {
+    const current = this.selfModelStore.read();
     if (learning?.stage?.stage) {
       this.selfModelStore.write({ stage: learning.stage.stage });
     }
-    return runSelfAudit({ policy: learning?.policy?.policy || {} });
+    const gatePassCount = (current.gatePassCount || 0) + (learning?.gate?.pass ? 1 : 0);
+    const gateFailCount = (current.gateFailCount || 0) + (learning?.gate?.pass ? 0 : 1);
+    const patch = {
+      gatePassCount,
+      gateFailCount,
+      lastPolicyVersion: learning?.policyVersion || current.lastPolicyVersion || null,
+    };
+    const selfAudit = runSelfAudit({ policy: learning?.policy?.policy || {} });
+    patch.lastAuditStatus = selfAudit.status;
+    this.selfModelStore.write(patch);
+    return selfAudit;
+  }
+
+  snapshot() {
+    return this.selfModelStore.read();
   }
 }
 
-module.exports = { MindRuntime };
+module.exports = { MindRuntime, SQLiteSelfModelStore };

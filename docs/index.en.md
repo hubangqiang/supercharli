@@ -26,6 +26,8 @@
 - `docs/plans/bootstrap-tasklist.v1.md`
 - `docs/plans/readiness-check.v1.md`
 - `docs/plans/readiness-report.v1.md`
+- `docs/plans/learning-objective-gates.en.md`
+- `docs/plans/learning-objective-gates.zh-CN.md`
 
 ## 3. Guides
 - `docs/guide/user-manual.en.md`

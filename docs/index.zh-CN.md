@@ -30,6 +30,8 @@
 - `docs/plans/bootstrap-tasklist.v1.md`
 - `docs/plans/readiness-check.v1.md`
 - `docs/plans/readiness-report.v1.md`
+- `docs/plans/learning-objective-gates.zh-CN.md`
+- `docs/plans/learning-objective-gates.en.md`
 
 ## 3. 说明层（Guide）
 - `docs/guide/user-manual.zh-CN.md`

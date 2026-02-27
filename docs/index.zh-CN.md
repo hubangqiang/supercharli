@@ -62,6 +62,8 @@
 - `docs/guide/decision-log.en.md`
 - `docs/guide/branching-policy.zh-CN.md`
 - `docs/guide/branching-policy.en.md`
+- `docs/guide/architecture-governance.zh-CN.md`
+- `docs/guide/architecture-governance.en.md`
 
 ## 4. 开源治理（Root）
 - `README.md`

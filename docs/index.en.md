@@ -58,6 +58,8 @@
 - `docs/guide/decision-log.zh-CN.md`
 - `docs/guide/branching-policy.en.md`
 - `docs/guide/branching-policy.zh-CN.md`
+- `docs/guide/architecture-governance.en.md`
+- `docs/guide/architecture-governance.zh-CN.md`
 
 ## 4. Open Source Governance
 - `README.md`

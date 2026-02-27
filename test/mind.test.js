@@ -12,12 +12,16 @@ function runMindRuntimeChecks() {
     riskSignals: ["guardrail-risk"],
     l1: [{ text: "昨天也拖延" }],
     recalled: [{ summary: "Repeated pattern detected: procrastination-loop" }],
+    l3: [{ phase: "exam-phase", lesson: "weekly plan + daily checkpoint" }],
+    l4: { values: ["agency"], boundaries: ["no-fabrication"] },
   });
 
   assert.strictEqual(out.thinking.mode, "deliberate");
   assert.ok(out.metacognition.confidence < 0.7);
   assert.ok(Array.isArray(out.workspace.blocks));
   assert.ok(out.workspace.blocks.length <= 5);
+  assert.ok(out.workspace.blocks.some((b) => b.type === "l3"), "workspace should include l3 block");
+  assert.ok(out.workspace.blocks.some((b) => b.type === "l4-values"), "workspace should include l4 values");
 }
 
 async function runKernelMindHookCheck() {

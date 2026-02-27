@@ -24,11 +24,15 @@ class Kernel {
 
     const l1 = this.memory.readL1(input.sessionId);
     const recalled = this.memory.recallL2(input.text);
+    const l3 = typeof this.memory.readL3Milestones === "function" ? this.memory.readL3Milestones(1) : [];
+    const l4 = typeof this.memory.readL4Identity === "function" ? this.memory.readL4Identity() : {};
     this.telemetry.log({
       stage: "recall",
       traceId,
       l1Count: l1.length,
       l2RecallCount: recalled.length,
+      l3RecallCount: l3.length,
+      l4Keys: Object.keys(l4 || {}).length,
     });
 
     const mindCtx =
@@ -40,6 +44,8 @@ class Kernel {
             riskSignals: input.riskSignals,
             l1,
             recalled,
+            l3,
+            l4,
           })
         : null;
 
@@ -68,6 +74,8 @@ class Kernel {
       metacognitiveConfidence: mindCtx?.metacognition?.confidence,
       thinkingMode: mindCtx?.thinking?.mode,
       workspace: mindCtx?.workspace?.blocks,
+      l3,
+      l4,
     });
     this.telemetry.log({
       stage: "generate",

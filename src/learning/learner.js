@@ -3,6 +3,7 @@ const { LearningEvaluator } = require("./evaluator");
 const { LearningPolicyUpdater } = require("./policyUpdater");
 const { runConsolidationJob } = require("./jobs/consolidationJob");
 const { evaluateLearningGates } = require("./gates");
+const { decideRollout } = require("./rolloutManager");
 
 class Learner {
   constructor(options = {}) {
@@ -23,6 +24,7 @@ class Learner {
     this.maxEventBuffer = options.maxEventBuffer || 200;
     this.gateConfig = options.gateConfig || {};
     this.autoActivate = Boolean(options.autoActivate);
+    this.rolloutConfig = options.rolloutConfig || {};
   }
 
   observeTurn(turn) {
@@ -53,11 +55,27 @@ class Learner {
     }
 
     let policyVersion = null;
+    let rollout = null;
     if (this.autoActivate && gate.pass && this.store && typeof this.store.savePolicyVersion === "function") {
       policyVersion = this.store.savePolicyVersion({
         policy: policy.policy,
         gates: gate,
         note: "auto-activated-by-gates",
+      });
+    }
+
+    if (this.store && typeof this.store.getRolloutState === "function" && typeof this.store.saveRolloutState === "function") {
+      const currentRollout = this.store.getRolloutState();
+      rollout = decideRollout({
+        gate,
+        metrics,
+        current: { ...currentRollout, version: policyVersion || currentRollout.version },
+        ...this.rolloutConfig,
+      });
+      this.store.saveRolloutState({
+        ...rollout.rollout,
+        version: policyVersion || rollout.rollout.version || null,
+        note: rollout.reason,
       });
     }
 
@@ -75,6 +93,7 @@ class Learner {
       policy,
       gate,
       policyVersion,
+      rollout,
     };
   }
 

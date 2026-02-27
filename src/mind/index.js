@@ -12,11 +12,15 @@ class MindRuntime {
 
   prepareTurn(input = {}) {
     const selfModel = this.selfModelStore.read();
+    const l4 = input.l4 && typeof input.l4 === "object" ? input.l4 : {};
+    const mergedBoundaries = uniq([...(selfModel.boundaries || []), ...(Array.isArray(l4.boundaries) ? l4.boundaries : [])]);
     const metacognition = assessMetacognition(input);
     const thinking = selectThinkingMode({
+      text: input.text,
       complexity: input.complexity,
       severity: input.severity,
       metacognition,
+      l4: { ...l4, boundaries: mergedBoundaries },
     });
     const workspace = buildGlobalWorkspace({
       goal: input.goal || input.text,
@@ -24,6 +28,8 @@ class MindRuntime {
       severity: input.severity,
       l1: input.l1,
       recalled: input.recalled,
+      l3: input.l3,
+      l4: { ...l4, boundaries: mergedBoundaries, values: uniq([...(selfModel.values || []), ...(Array.isArray(l4.values) ? l4.values : [])]) },
     });
 
     return {
@@ -55,6 +61,10 @@ class MindRuntime {
   snapshot() {
     return this.selfModelStore.read();
   }
+}
+
+function uniq(arr) {
+  return Array.from(new Set(arr));
 }
 
 module.exports = { MindRuntime, SQLiteSelfModelStore };

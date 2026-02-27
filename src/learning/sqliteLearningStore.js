@@ -70,6 +70,24 @@ class SQLiteLearningStore {
       ORDER BY version DESC
       LIMIT 1
     `);
+
+    this.upsertRolloutStateStmt = this.db.prepare(`
+      INSERT INTO learning_rollout_state
+      (scope, enabled, ratio, version, updated_at, note)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(scope) DO UPDATE SET
+        enabled = excluded.enabled,
+        ratio = excluded.ratio,
+        version = excluded.version,
+        updated_at = excluded.updated_at,
+        note = excluded.note
+    `);
+
+    this.getRolloutStateStmt = this.db.prepare(`
+      SELECT enabled, ratio, version, updated_at AS updatedAt, note
+      FROM learning_rollout_state
+      WHERE scope = ?
+    `);
   }
 
   appendEvent(event = {}) {
@@ -164,6 +182,31 @@ class SQLiteLearningStore {
     };
   }
 
+  saveRolloutState(state = {}) {
+    this.upsertRolloutStateStmt.run(
+      this.scope,
+      state.enabled ? 1 : 0,
+      Number(state.ratio || 0),
+      state.version || null,
+      new Date().toISOString(),
+      state.note || "",
+    );
+  }
+
+  getRolloutState() {
+    const row = this.getRolloutStateStmt.get(this.scope);
+    if (!row) {
+      return { enabled: false, ratio: 0, version: null, updatedAt: null, note: "" };
+    }
+    return {
+      enabled: Boolean(row.enabled),
+      ratio: Number(row.ratio || 0),
+      version: row.version || null,
+      updatedAt: row.updatedAt,
+      note: row.note || "",
+    };
+  }
+
   summarizeRecentOutcomes(limit = 30) {
     const rows = this.listRecentEvents(limit);
     const total = rows.length;
@@ -233,6 +276,15 @@ class SQLiteLearningStore {
         gate_json TEXT NOT NULL,
         note TEXT NOT NULL,
         UNIQUE(scope, version)
+      );
+
+      CREATE TABLE IF NOT EXISTS learning_rollout_state (
+        scope TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL,
+        ratio REAL NOT NULL,
+        version INTEGER,
+        updated_at TEXT NOT NULL,
+        note TEXT NOT NULL
       );
     `);
   }

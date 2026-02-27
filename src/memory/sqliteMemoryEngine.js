@@ -48,10 +48,12 @@ class SQLiteMemoryEngine {
       );
 
       CREATE INDEX IF NOT EXISTS idx_l1_session_id ON l1_events(session_id);
+    `);
+    this._ensureL2Columns();
+    this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_l2_updated_at ON l2_patterns(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_l2_strength ON l2_patterns(strength DESC, updated_at DESC);
     `);
-    this._ensureL2Columns();
 
     this.readL1Stmt = this.db.prepare(`
       SELECT text, severity, trace_id AS traceId, created_at AS createdAt

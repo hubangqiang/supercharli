@@ -1,9 +1,16 @@
+const { classifyPatternKey, defaultStrategyForPattern } = require("./patternClassifier");
+const { computePromotionScore } = require("./promotionScoring");
+const { rankRecalledItems } = require("./recallRanking");
+
 class InMemoryMemoryEngine {
-  constructor() {
+  constructor(options = {}) {
     this.l1 = new Map();
     this.l2 = new Map();
     this.patternCounts = new Map();
-    this.threshold = 3;
+    this.threshold = options.threshold || 3;
+    this.recallLimit = options.recallLimit || 5;
+    this.l1Limit = options.l1Limit || 20;
+    this.scoreThreshold = options.scoreThreshold || 0.65;
   }
 
   readL1(sessionId) {
@@ -13,41 +20,57 @@ class InMemoryMemoryEngine {
   writeL1(sessionId, entry) {
     const current = this.readL1(sessionId);
     current.push(entry);
-    this.l1.set(sessionId, current.slice(-20));
+    this.l1.set(sessionId, current.slice(-this.l1Limit));
   }
 
   recallL2(text) {
-    const lower = text.toLowerCase();
-    return Array.from(this.l2.entries())
-      .filter(([key]) => lower.includes(key))
-      .map(([, value]) => value)
-      .slice(0, 5);
+    const items = Array.from(this.l2.values());
+    const matched = items.filter((item) => {
+      const q = String(text || "").toLowerCase();
+      return q.includes(String(item.key || "").toLowerCase()) || q.includes(String(item.summary || "").toLowerCase());
+    });
+    const pool = matched.length ? matched : items;
+    const ranked = rankRecalledItems(pool, text, this.recallLimit);
+    const now = new Date().toISOString();
+    for (const item of ranked) {
+      const current = this.l2.get(item.key);
+      if (!current) continue;
+      current.recallCount = (current.recallCount || 0) + 1;
+      current.lastRecalledAt = now;
+      current.strength = Math.min(2.5, Number(current.strength || 0.6) + 0.05);
+      this.l2.set(item.key, current);
+    }
+    return ranked;
   }
 
   evaluatePromotion(entry) {
-    const key = this._patternKey(entry.text);
+    const key = classifyPatternKey(entry.text);
     if (!key) return false;
 
     const count = (this.patternCounts.get(key) || 0) + 1;
     this.patternCounts.set(key, count);
 
-    if (count < this.threshold) return false;
+    const score = computePromotionScore(entry, {
+      repeatCount: count,
+      threshold: this.threshold,
+      scoreThreshold: this.scoreThreshold,
+    });
+    if (!score.shouldPromote) return false;
 
+    const now = new Date().toISOString();
+    const current = this.l2.get(key);
+    const strength = Math.min(2.5, (Number(current?.strength || 0.6) * 0.7) + (score.score * 0.8));
     this.l2.set(key, {
       key,
       summary: `Repeated pattern detected: ${key}`,
-      strategy: "Break into one objective and one minimal next step.",
-      updatedAt: new Date().toISOString(),
+      strategy: defaultStrategyForPattern(key),
+      updatedAt: now,
+      strength,
+      confidence: Number(Math.min(0.95, Math.max(0.5, score.score)).toFixed(2)),
+      recallCount: Number(current?.recallCount || 0),
+      lastRecalledAt: current?.lastRecalledAt || null,
     });
     return true;
-  }
-
-  _patternKey(text) {
-    const lower = text.toLowerCase();
-    if (lower.includes("焦虑") || lower.includes("anxious")) return "stress-planning";
-    if (lower.includes("拖延") || lower.includes("procrast")) return "procrastination-loop";
-    if (lower.includes("冲动") || lower.includes("impulsive")) return "high-risk-impulse";
-    return "general-execution-pattern";
   }
 }
 

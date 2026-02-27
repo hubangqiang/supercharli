@@ -2,12 +2,19 @@ const fs = require("fs");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
 const { getDefaultDbPath } = require("../runtime/runtimePaths");
+const { classifyPatternKey, defaultStrategyForPattern } = require("./patternClassifier");
+const { computePromotionScore } = require("./promotionScoring");
+const { rankRecalledItems } = require("./recallRanking");
 
 class SQLiteMemoryEngine {
   constructor(options = {}) {
     this.threshold = options.threshold || 3;
+    this.scoreThreshold = options.scoreThreshold || 0.65;
     this.recallLimit = options.recallLimit || 5;
     this.l1Limit = options.l1Limit || 20;
+    this.decayPerDay = options.decayPerDay || 0.02;
+    this.decayIntervalWrites = options.decayIntervalWrites || 10;
+    this._writeCount = 0;
 
     const dbPath = options.dbPath || getDefaultDbPath(options.env || process.env);
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -32,11 +39,19 @@ class SQLiteMemoryEngine {
         key TEXT PRIMARY KEY,
         summary TEXT NOT NULL,
         strategy TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        strength REAL NOT NULL DEFAULT 0.6,
+        confidence REAL NOT NULL DEFAULT 0.6,
+        recall_count INTEGER NOT NULL DEFAULT 0,
+        last_recalled_at TEXT,
+        source TEXT NOT NULL DEFAULT 'promotion-score'
       );
 
       CREATE INDEX IF NOT EXISTS idx_l1_session_id ON l1_events(session_id);
+      CREATE INDEX IF NOT EXISTS idx_l2_updated_at ON l2_patterns(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_l2_strength ON l2_patterns(strength DESC, updated_at DESC);
     `);
+    this._ensureL2Columns();
 
     this.readL1Stmt = this.db.prepare(`
       SELECT text, severity, trace_id AS traceId, created_at AS createdAt
@@ -76,18 +91,54 @@ class SQLiteMemoryEngine {
     `);
 
     this.upsertL2Stmt = this.db.prepare(`
-      INSERT INTO l2_patterns (key, summary, strategy, updated_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO l2_patterns (key, summary, strategy, updated_at, strength, confidence, source)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET
         summary = excluded.summary,
         strategy = excluded.strategy,
-        updated_at = excluded.updated_at
+        updated_at = excluded.updated_at,
+        strength = excluded.strength,
+        confidence = excluded.confidence,
+        source = excluded.source
     `);
 
-    this.listL2Stmt = this.db.prepare(`
-      SELECT key, summary, strategy, updated_at AS updatedAt
+    this.findL2CandidatesStmt = this.db.prepare(`
+      SELECT key, summary, strategy, updated_at AS updatedAt, strength, confidence,
+             recall_count AS recallCount, last_recalled_at AS lastRecalledAt, source
       FROM l2_patterns
-      ORDER BY updated_at DESC
+      WHERE instr(LOWER(?), LOWER(key)) > 0
+         OR instr(LOWER(?), LOWER(summary)) > 0
+      ORDER BY strength DESC, updated_at DESC
+      LIMIT ?
+    `);
+
+    this.listL2FallbackStmt = this.db.prepare(`
+      SELECT key, summary, strategy, updated_at AS updatedAt, strength, confidence,
+             recall_count AS recallCount, last_recalled_at AS lastRecalledAt, source
+      FROM l2_patterns
+      ORDER BY strength DESC, updated_at DESC
+      LIMIT ?
+    `);
+
+    this.bumpRecallStmt = this.db.prepare(`
+      UPDATE l2_patterns
+      SET recall_count = recall_count + 1,
+          last_recalled_at = ?,
+          strength = MIN(2.5, strength + 0.05)
+      WHERE key = ?
+    `);
+
+    this.getL2ByKeyStmt = this.db.prepare(`
+      SELECT key, summary, strategy, updated_at AS updatedAt, strength, confidence,
+             recall_count AS recallCount, last_recalled_at AS lastRecalledAt, source
+      FROM l2_patterns
+      WHERE key = ?
+    `);
+
+    this.applyDecayStmt = this.db.prepare(`
+      UPDATE l2_patterns
+      SET strength = MAX(0.1, strength - (? * MAX(0, julianday('now') - julianday(updated_at))))
+      WHERE updated_at IS NOT NULL
     `);
   }
 
@@ -99,45 +150,74 @@ class SQLiteMemoryEngine {
   writeL1(sessionId, entry) {
     this.writeL1Stmt.run(sessionId, entry.text, entry.severity, entry.traceId, entry.createdAt);
     this.trimL1Stmt.run(sessionId, sessionId, this.l1Limit);
+    this._writeCount += 1;
+    if (this._writeCount % this.decayIntervalWrites === 0) {
+      this.applyMemoryDecay();
+    }
   }
 
   recallL2(text) {
-    const lower = String(text || "").toLowerCase();
-    return this.listL2Stmt
-      .all()
-      .filter((item) => lower.includes(item.key))
-      .slice(0, this.recallLimit);
+    const query = String(text || "");
+    const primary = this.findL2CandidatesStmt.all(query, query, this.recallLimit * 2);
+    const pool = primary.length ? primary : this.listL2FallbackStmt.all(this.recallLimit * 2);
+    const ranked = rankRecalledItems(pool, query, this.recallLimit);
+    const now = new Date().toISOString();
+    for (const item of ranked) {
+      this.bumpRecallStmt.run(now, item.key);
+    }
+    return ranked;
   }
 
   evaluatePromotion(entry) {
-    const key = this._patternKey(entry.text);
+    const key = classifyPatternKey(entry.text);
     if (!key) return false;
 
     const current = this.readPatternCountStmt.get(key);
     const count = (current?.count || 0) + 1;
     this.upsertPatternCountStmt.run(key, count);
 
-    if (count < this.threshold) return false;
+    const decision = computePromotionScore(entry, {
+      repeatCount: count,
+      threshold: this.threshold,
+      scoreThreshold: this.scoreThreshold,
+    });
+    if (!decision.shouldPromote) return false;
 
+    const now = new Date().toISOString();
+    const existing = this.getL2ByKeyStmt.get(key);
+    const currentStrength = Number(existing?.strength || 0.6);
+    const nextStrength = Math.min(2.5, (currentStrength * 0.7) + (decision.score * 0.8));
     this.upsertL2Stmt.run(
       key,
       `Repeated pattern detected: ${key}`,
-      "Break into one objective and one minimal next step.",
-      new Date().toISOString(),
+      defaultStrategyForPattern(key),
+      now,
+      nextStrength,
+      Number(Math.min(0.95, Math.max(0.5, decision.score)).toFixed(2)),
+      "promotion-score",
     );
     return true;
+  }
+
+  applyMemoryDecay() {
+    this.applyDecayStmt.run(this.decayPerDay);
   }
 
   close() {
     this.db.close();
   }
 
-  _patternKey(text) {
-    const lower = String(text || "").toLowerCase();
-    if (lower.includes("焦虑") || lower.includes("anxious")) return "stress-planning";
-    if (lower.includes("拖延") || lower.includes("procrast")) return "procrastination-loop";
-    if (lower.includes("冲动") || lower.includes("impulsive")) return "high-risk-impulse";
-    return "general-execution-pattern";
+  _ensureL2Columns() {
+    const columns = new Set(this.db.prepare("PRAGMA table_info(l2_patterns)").all().map((c) => c.name));
+    const add = (name, sql) => {
+      if (!columns.has(name)) this.db.exec(`ALTER TABLE l2_patterns ADD COLUMN ${sql}`);
+    };
+
+    add("strength", "strength REAL NOT NULL DEFAULT 0.6");
+    add("confidence", "confidence REAL NOT NULL DEFAULT 0.6");
+    add("recall_count", "recall_count INTEGER NOT NULL DEFAULT 0");
+    add("last_recalled_at", "last_recalled_at TEXT");
+    add("source", "source TEXT NOT NULL DEFAULT 'promotion-score'");
   }
 }
 

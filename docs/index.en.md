@@ -12,6 +12,8 @@
 - `docs/plans/scope.md`
 - `docs/plans/acceptance.v1.md`
 - `docs/plans/memory-policy.md`
+- `docs/plans/human-memory-architecture.en.md`
+- `docs/plans/human-memory-architecture.zh-CN.md`
 - `docs/plans/event-severity.md`
 - `docs/plans/model-routing-policy.md`
 - `docs/plans/response-contract.md`

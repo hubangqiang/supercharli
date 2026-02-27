@@ -42,7 +42,15 @@ class Learner {
     const metrics = this.store && typeof this.store.summarizeRecentOutcomes === "function"
       ? this.store.summarizeRecentOutcomes(this.gateConfig.windowSize || 40)
       : summarizeRecentOutcomes(this.events, this.gateConfig.windowSize || 40);
-    const gate = evaluateLearningGates(metrics, this.gateConfig);
+    const baseGate = evaluateLearningGates(metrics, this.gateConfig);
+    const activeLearning = Boolean(turn && turn.activeLearning);
+    const gate = activeLearning
+      ? {
+          ...baseGate,
+          pass: true,
+          source: "active-learning-request",
+        }
+      : baseGate;
 
     if (this.store && event.shouldLearn && typeof this.store.saveCandidate === "function") {
       this.store.saveCandidate({

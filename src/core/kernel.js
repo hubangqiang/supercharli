@@ -133,6 +133,7 @@ class Kernel {
 
     const latencyMs = Date.now() - started;
 
+    const activeLearning = isActiveLearningRequest(input.text);
     let learning = null;
     if (this.learner && typeof this.learner.observeTurn === "function") {
       learning = this.learner.observeTurn({
@@ -141,6 +142,7 @@ class Kernel {
         severity,
         route: route.route,
         fallbackUsed: Boolean(generation.fallbackUsed),
+        activeLearning,
       });
       this.telemetry.log({
         stage: "learn",
@@ -185,9 +187,24 @@ class Kernel {
         thinkingMode: mindCtx?.thinking?.mode,
         thinkingReason: mindCtx?.thinking?.reason,
         selfAuditStatus: selfAudit?.status,
+        activeLearningRequested: activeLearning,
       },
     };
   }
+}
+
+function isActiveLearningRequest(text) {
+  const s = String(text || "").toLowerCase();
+  if (!s) return false;
+  const patterns = [
+    /分析学习/,
+    /主动学习/,
+    /复盘/,
+    /总结(一下|下)?/,
+    /learn\b/,
+    /reflect\b/,
+  ];
+  return patterns.some((p) => p.test(s));
 }
 
 module.exports = { Kernel };

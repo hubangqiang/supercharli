@@ -35,6 +35,9 @@ async function runKernelHookCheck() {
   const out = await kernel.runTurn({ sessionId: "learning-1", text: "我又拖延了" });
   assert.ok(out.meta.learningStage, "kernel should expose learning stage");
   assert.ok(out.meta.policySnapshot, "kernel should expose policy snapshot");
+
+  const active = await kernel.runTurn({ sessionId: "learning-1", text: "请你主动学习并复盘我最近的模式" });
+  assert.strictEqual(active.meta.activeLearningRequested, true);
 }
 
 async function run() {

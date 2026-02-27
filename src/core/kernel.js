@@ -4,11 +4,12 @@ const { SeverityStateMachine } = require("./severityStateMachine");
 const { Telemetry } = require("../observability/telemetry");
 
 class Kernel {
-  constructor(memoryEngine, router, severityMachine = new SeverityStateMachine(), telemetry = new Telemetry()) {
+  constructor(memoryEngine, router, severityMachine = new SeverityStateMachine(), telemetry = new Telemetry(), learner = null) {
     this.memory = memoryEngine;
     this.router = router;
     this.severity = severityMachine;
     this.telemetry = telemetry;
+    this.learner = learner;
   }
 
   async runTurn(input) {
@@ -101,6 +102,24 @@ class Kernel {
     }
 
     const latencyMs = Date.now() - started;
+
+    let learning = null;
+    if (this.learner && typeof this.learner.observeTurn === "function") {
+      learning = this.learner.observeTurn({
+        sessionId: input.sessionId,
+        text: input.text,
+        severity,
+        route: route.route,
+        fallbackUsed: Boolean(generation.fallbackUsed),
+      });
+      this.telemetry.log({
+        stage: "learn",
+        traceId,
+        learned: learning.learned,
+        learningStage: learning.stage?.stage,
+      });
+    }
+
     this.telemetry.log({ stage: "done", traceId, latencyMs });
 
     return {
@@ -119,6 +138,8 @@ class Kernel {
         traceId,
         regenerated: Boolean(generated.regenerated),
         latencyMs,
+        learningStage: learning?.stage?.stage,
+        policySnapshot: learning?.policy?.policy,
       },
     };
   }

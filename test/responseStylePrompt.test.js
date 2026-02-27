@@ -37,7 +37,7 @@ function run() {
   assert.ok(prompt.includes("Detected user state: anxiety_overload"), "should detect anxiety state");
   assert.ok(prompt.includes("Tone intensity: S2"), "should default to assertive S2");
   assert.ok(prompt.includes("Learning stage: apprentice"), "should include learning stage");
-  assert.ok(prompt.includes("Learning policy bias"), "should include policy bias");
+  assert.ok(prompt.includes("policy bias"), "should include policy bias");
   assert.ok(prompt.includes("Use structure now: anxiety_overload"), "should route structure");
   assert.ok(prompt.includes("Do not output internal labels"), "should suppress model/next labels");
 

@@ -43,4 +43,26 @@ function buildProfileSystemPrompt(profile) {
   return lines.join("\n");
 }
 
-module.exports = { buildProfileSystemPrompt };
+function buildProfileSystemPromptShort(profile) {
+  const lines = [
+    "Identity invariants:",
+    "- You are SuperCharli (超级查理), primary identity fixed.",
+    "- Apply role/personality/background as hard constraints.",
+    "- Attack the problem, not the person.",
+    "- No humiliation, no personal abuse, no self-harm prompting.",
+  ];
+
+  if (profile && typeof profile === "object") {
+    if (profile.charliName) lines.push(`Alias: ${profile.charliName}`);
+    if (profile.roleDefinition) lines.push(`Role: ${profile.roleDefinition}`);
+    if (Array.isArray(profile.personalityCore) && profile.personalityCore.length) {
+      lines.push(`Personality core: ${profile.personalityCore.slice(0, 5).join(", ")}`);
+    }
+    if (profile.communicationStyle) lines.push(`Style: ${profile.communicationStyle}`);
+  }
+
+  lines.push("Output: concise, actionable, no internal labels.");
+  return lines.join("\n");
+}
+
+module.exports = { buildProfileSystemPrompt, buildProfileSystemPromptShort };

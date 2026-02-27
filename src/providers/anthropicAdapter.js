@@ -1,6 +1,4 @@
-const { buildProfileSystemPrompt } = require("./profilePrompt");
-const { buildRequestContextPrompt } = require("./requestContextPrompt");
-const { buildResponseStylePrompt } = require("./responseStylePrompt");
+const { composeSystemPrompt } = require("./systemPromptComposer");
 
 class AnthropicAdapter {
   constructor(options) {
@@ -10,24 +8,14 @@ class AnthropicAdapter {
   }
 
   async generate(model, context) {
-    const profilePrompt = buildProfileSystemPrompt(context.personaProfile);
-    const requestContextPrompt = buildRequestContextPrompt(context);
-    const responseStylePrompt = buildResponseStylePrompt(context);
+    const composed = composeSystemPrompt(context, { budget: 1800 });
 
     const payload = {
       model,
       max_tokens: 600,
       temperature: 0.4,
       messages: [{ role: "user", content: context.text }],
-      system: [
-        "You are SuperCharli response engine. Be concise and practical.",
-        "Treat profile/role/personality/background constraints as mandatory behavior rules.",
-        profilePrompt,
-        requestContextPrompt,
-        responseStylePrompt,
-      ]
-        .filter(Boolean)
-        .join("\n\n"),
+      system: composed.text,
     };
 
     const controller = new AbortController();

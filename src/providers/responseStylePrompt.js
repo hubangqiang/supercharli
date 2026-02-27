@@ -10,6 +10,7 @@ function buildResponseStylePrompt(context = {}) {
 
   const lines = [
     "Humanized response rules:",
+    `- Learning stage: ${learningStage}; policy bias: ${styleBias}; tone: ${toneLevel}.`,
     "- Blend empathy and reasoning, but keep a tough-love stance instead of soft consolation.",
     "- Start from the user's concrete pressure point, then move to diagnosis and action.",
     "- Avoid slogan-heavy output and avoid repetitive fixed openings.",
@@ -38,8 +39,6 @@ function buildResponseStylePrompt(context = {}) {
     "",
     `Detected user state: ${detected.id}.`,
     `Tone intensity: ${toneLevel} (repeatCount=${repeatCount}).`,
-    `Learning stage: ${learningStage}.`,
-    `Learning policy bias: ${styleBias}.`,
     `Use structure now: ${detected.structure}.`,
     `Style intent: ${detected.intent}.`,
     "Deboilerplate rule: do not use the same opening style in consecutive turns for the same session.",
@@ -157,9 +156,25 @@ function describePolicyBias(policy) {
 
 module.exports = {
   buildResponseStylePrompt,
+  buildResponseStylePromptShort,
   detectMode,
   countRepeatedMode,
   resolveToneLevel,
   normalizePolicy,
   describePolicyBias,
 };
+
+function buildResponseStylePromptShort(context = {}) {
+  const detected = detectMode(String(context.text || "").toLowerCase());
+  const repeatCount = countRepeatedMode(context.l1, detected.id);
+  const tone = resolveToneLevel(detected.id, repeatCount, context.learningPolicy);
+  const stage = context.learningStage || "apprentice";
+  const bias = describePolicyBias(normalizePolicy(context.learningPolicy));
+
+  return [
+    "Style runtime:",
+    `- Mode: ${detected.id}; tone: ${tone}; stage: ${stage}; bias: ${bias}.`,
+    "- Use short hard sentences, one action max, no soft consultative ending.",
+    "- Keep tough-love boundaries: no user-directed insults.",
+  ].join("\n");
+}

@@ -1,6 +1,4 @@
-const { buildProfileSystemPrompt } = require("./profilePrompt");
-const { buildRequestContextPrompt } = require("./requestContextPrompt");
-const { buildResponseStylePrompt } = require("./responseStylePrompt");
+const { composeSystemPrompt } = require("./systemPromptComposer");
 
 class OpenAICompatibleAdapter {
   constructor(options) {
@@ -10,19 +8,8 @@ class OpenAICompatibleAdapter {
   }
 
   async generate(model, context) {
-    const profilePrompt = buildProfileSystemPrompt(context.personaProfile);
-    const requestContextPrompt = buildRequestContextPrompt(context);
-    const responseStylePrompt = buildResponseStylePrompt(context);
-
-    const systemPrompt = [
-      "You are SuperCharli response engine. Be concise, practical, and avoid fabricated certainty.",
-      "Treat profile/role/personality/background constraints as mandatory behavior rules.",
-      profilePrompt,
-      requestContextPrompt,
-      responseStylePrompt,
-    ]
-      .filter(Boolean)
-      .join("\n\n");
+    const composed = composeSystemPrompt(context, { budget: 1800 });
+    const systemPrompt = composed.text;
 
     const payload = {
       model,

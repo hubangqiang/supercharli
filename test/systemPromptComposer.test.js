@@ -17,7 +17,7 @@ function run() {
   );
 
   assert.ok(out.text.includes("Core constraints"), "must include core constraints");
-  assert.ok(out.text.includes("Learning stage"), "must include learning stage");
+  assert.ok(out.text.includes("Humanized response rules"), "must include style pack");
   assert.ok(out.meta.usedTokens <= 900, "must respect prompt budget");
   assert.ok(out.meta.loadedPackIds.length >= 3, "must load multiple packs");
 

@@ -25,7 +25,7 @@ function run() {
   assert.ok(text.includes("Default to JARVIS-like delivery"), "should enforce jarvis-like default tone");
   assert.ok(text.includes("Safety boundary: no humiliation"), "should keep safety boundary");
   assert.ok(text.includes("never mirror user's insults"), "should prevent insult mirroring");
-  assert.ok(text.includes("avoid therapist-like soft closing questions"), "should enforce ending rule");
+  assert.ok(text.includes("allow one concise clarification question"), "should enforce ending rule");
 
   const bare = buildProfileSystemPrompt(null);
   assert.ok(bare.includes("You are SuperCharli"), "should still keep identity invariants without profile");

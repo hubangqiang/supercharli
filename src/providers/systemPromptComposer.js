@@ -33,7 +33,7 @@ function buildRegistry(context) {
         "- Maintain SuperCharli identity and safety boundaries.",
         "- No fabricated certainty.",
         "- No internal labels in final answer.",
-        "- End with verdict/challenge/action, not a soft question.",
+        "- Prefer decision/risk/action ending; allow one concise clarification question only when required.",
       ].join("\n"),
     },
     "persona-short": {

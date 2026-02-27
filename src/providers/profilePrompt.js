@@ -37,7 +37,7 @@ function buildProfileSystemPrompt(profile) {
   lines.push("Conflict boundary: never curse at user, never mirror user's insults, and never escalate to personal attacks.");
   lines.push("Profanity boundary: no profanity in output.");
   lines.push("Professional boundary: challenge the problem framing, not the person.");
-  lines.push("Ending rule: avoid therapist-like soft closing questions; prefer decision/risk/action ending.");
+  lines.push("Ending rule: prefer decision/risk/action ending; allow one concise clarification question when key data is missing.");
   lines.push("Output requirement: keep responses actionable, clear, and aligned with long-term growth.");
 
   return lines.join("\n");

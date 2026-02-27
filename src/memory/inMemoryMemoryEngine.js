@@ -8,9 +8,10 @@ class InMemoryMemoryEngine {
     this.l2 = new Map();
     this.patternCounts = new Map();
     this.threshold = options.threshold || 3;
-    this.recallLimit = options.recallLimit || 5;
+    this.recallLimit = clampRecallLimit(options.recallLimit || 5);
     this.l1Limit = options.l1Limit || 20;
     this.scoreThreshold = options.scoreThreshold || 0.65;
+    this.reconsolidationCandidates = [];
   }
 
   readL1(sessionId) {
@@ -60,10 +61,24 @@ class InMemoryMemoryEngine {
     const now = new Date().toISOString();
     const current = this.l2.get(key);
     const strength = Math.min(2.5, (Number(current?.strength || 0.6) * 0.7) + (score.score * 0.8));
+    const nextStrategy = defaultStrategyForPattern(key);
+
+    if (current && current.strategy !== nextStrategy) {
+      this.reconsolidationCandidates.push({
+        key,
+        proposedSummary: `Candidate update for ${key}`,
+        proposedStrategy: nextStrategy,
+        confidence: Number(Math.min(0.95, Math.max(0.5, score.score)).toFixed(2)),
+        sourceText: String(entry.text || ""),
+        status: "pending",
+        createdAt: now,
+      });
+    }
+
     this.l2.set(key, {
       key,
       summary: `Repeated pattern detected: ${key}`,
-      strategy: defaultStrategyForPattern(key),
+      strategy: current?.strategy || nextStrategy,
       updatedAt: now,
       strength,
       confidence: Number(Math.min(0.95, Math.max(0.5, score.score)).toFixed(2)),
@@ -72,6 +87,10 @@ class InMemoryMemoryEngine {
     });
     return true;
   }
+}
+
+function clampRecallLimit(limit) {
+  return Math.max(3, Math.min(5, Number(limit) || 5));
 }
 
 module.exports = { InMemoryMemoryEngine };

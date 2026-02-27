@@ -10,7 +10,7 @@ class SQLiteMemoryEngine {
   constructor(options = {}) {
     this.threshold = options.threshold || 3;
     this.scoreThreshold = options.scoreThreshold || 0.65;
-    this.recallLimit = options.recallLimit || 5;
+    this.recallLimit = Math.max(3, Math.min(5, Number(options.recallLimit || 5)));
     this.l1Limit = options.l1Limit || 20;
     this.decayPerDay = options.decayPerDay || 0.02;
     this.decayIntervalWrites = options.decayIntervalWrites || 10;
@@ -47,12 +47,25 @@ class SQLiteMemoryEngine {
         source TEXT NOT NULL DEFAULT 'promotion-score'
       );
 
+      CREATE TABLE IF NOT EXISTS memory_reconsolidation_candidates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key TEXT NOT NULL,
+        proposed_summary TEXT NOT NULL,
+        proposed_strategy TEXT NOT NULL,
+        confidence REAL NOT NULL,
+        source_text TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_l1_session_id ON l1_events(session_id);
     `);
     this._ensureL2Columns();
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_l2_updated_at ON l2_patterns(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_l2_strength ON l2_patterns(strength DESC, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_recon_candidates_status_created
+      ON memory_reconsolidation_candidates(status, created_at DESC);
     `);
 
     this.readL1Stmt = this.db.prepare(`
@@ -92,16 +105,25 @@ class SQLiteMemoryEngine {
       ON CONFLICT(key) DO UPDATE SET count = excluded.count
     `);
 
-    this.upsertL2Stmt = this.db.prepare(`
+    this.insertL2Stmt = this.db.prepare(`
       INSERT INTO l2_patterns (key, summary, strategy, updated_at, strength, confidence, source)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET
-        summary = excluded.summary,
-        strategy = excluded.strategy,
-        updated_at = excluded.updated_at,
-        strength = excluded.strength,
-        confidence = excluded.confidence,
-        source = excluded.source
+      ON CONFLICT(key) DO NOTHING
+    `);
+
+    this.refreshL2SignalStmt = this.db.prepare(`
+      UPDATE l2_patterns
+      SET updated_at = ?,
+          strength = ?,
+          confidence = ?,
+          source = ?
+      WHERE key = ?
+    `);
+
+    this.insertReconCandidateStmt = this.db.prepare(`
+      INSERT INTO memory_reconsolidation_candidates
+      (key, proposed_summary, proposed_strategy, confidence, source_text, status, created_at)
+      VALUES (?, ?, ?, ?, ?, 'pending', ?)
     `);
 
     this.findL2CandidatesStmt = this.db.prepare(`
@@ -189,15 +211,25 @@ class SQLiteMemoryEngine {
     const existing = this.getL2ByKeyStmt.get(key);
     const currentStrength = Number(existing?.strength || 0.6);
     const nextStrength = Math.min(2.5, (currentStrength * 0.7) + (decision.score * 0.8));
-    this.upsertL2Stmt.run(
-      key,
-      `Repeated pattern detected: ${key}`,
-      defaultStrategyForPattern(key),
-      now,
-      nextStrength,
-      Number(Math.min(0.95, Math.max(0.5, decision.score)).toFixed(2)),
-      "promotion-score",
-    );
+    const confidence = Number(Math.min(0.95, Math.max(0.5, decision.score)).toFixed(2));
+    const nextSummary = `Repeated pattern detected: ${key}`;
+    const nextStrategy = defaultStrategyForPattern(key);
+
+    this.insertL2Stmt.run(key, nextSummary, nextStrategy, now, nextStrength, confidence, "promotion-score");
+    const active = this.getL2ByKeyStmt.get(key);
+    if (active?.key) {
+      this.refreshL2SignalStmt.run(now, nextStrength, confidence, "promotion-score", key);
+      if (active.strategy !== nextStrategy || active.summary !== nextSummary) {
+        this.insertReconCandidateStmt.run(
+          key,
+          nextSummary,
+          nextStrategy,
+          confidence,
+          String(entry.text || ""),
+          now,
+        );
+      }
+    }
     return true;
   }
 

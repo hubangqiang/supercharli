@@ -3,7 +3,10 @@ function buildResponseStylePrompt(context = {}) {
   const lower = text.toLowerCase();
   const detected = detectMode(lower);
   const repeatCount = countRepeatedMode(context.l1, detected.id);
-  const toneLevel = resolveToneLevel(detected.id, repeatCount);
+  const toneLevel = resolveToneLevel(detected.id, repeatCount, context.learningPolicy);
+  const learningStage = context.learningStage || "apprentice";
+  const policy = normalizePolicy(context.learningPolicy);
+  const styleBias = describePolicyBias(policy);
 
   const lines = [
     "Humanized response rules:",
@@ -35,6 +38,8 @@ function buildResponseStylePrompt(context = {}) {
     "",
     `Detected user state: ${detected.id}.`,
     `Tone intensity: ${toneLevel} (repeatCount=${repeatCount}).`,
+    `Learning stage: ${learningStage}.`,
+    `Learning policy bias: ${styleBias}.`,
     `Use structure now: ${detected.structure}.`,
     `Style intent: ${detected.intent}.`,
     "Deboilerplate rule: do not use the same opening style in consecutive turns for the same session.",
@@ -118,11 +123,36 @@ function countRepeatedMode(l1, modeId) {
   return count;
 }
 
-function resolveToneLevel(modeId, repeatCount) {
+function resolveToneLevel(modeId, repeatCount, policy) {
   const fastEscalateModes = new Set(["procrastination_avoidance", "decision_conflict", "oversized_goal"]);
   if (fastEscalateModes.has(modeId) && repeatCount >= 2) return "S3";
   if (repeatCount >= 3) return "S3";
+  const p = normalizePolicy(policy);
+  if (p.actionPressure >= 0.88 || p.directness >= 0.9) {
+    if (fastEscalateModes.has(modeId)) return "S3";
+    return "S2";
+  }
   return "S2";
+}
+
+function normalizePolicy(policy) {
+  const p = policy && typeof policy === "object" ? policy : {};
+  return {
+    directness: Number.isFinite(p.directness) ? p.directness : 0.7,
+    actionPressure: Number.isFinite(p.actionPressure) ? p.actionPressure : 0.75,
+    reflectionDepth: Number.isFinite(p.reflectionDepth) ? p.reflectionDepth : 0.45,
+    explorationBias: Number.isFinite(p.explorationBias) ? p.explorationBias : 0.5,
+  };
+}
+
+function describePolicyBias(policy) {
+  const tags = [];
+  if (policy.directness >= 0.85) tags.push("high-directness");
+  if (policy.actionPressure >= 0.85) tags.push("high-action-pressure");
+  if (policy.reflectionDepth >= 0.7) tags.push("high-reflection");
+  if (policy.explorationBias >= 0.65) tags.push("high-exploration");
+  if (!tags.length) tags.push("balanced-default");
+  return tags.join(", ");
 }
 
 module.exports = {
@@ -130,4 +160,6 @@ module.exports = {
   detectMode,
   countRepeatedMode,
   resolveToneLevel,
+  normalizePolicy,
+  describePolicyBias,
 };

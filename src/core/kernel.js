@@ -40,12 +40,17 @@ class Kernel {
       reason: route.reason,
     });
 
+    const learningSnapshot =
+      this.learner && typeof this.learner.snapshot === "function" ? this.learner.snapshot() : null;
+
     const generation = await this.router.generateWithFallback(route.model, {
       text: input.text,
       l1,
       recalled,
       severity,
       personaProfile: input.personaProfile,
+      learningStage: learningSnapshot?.stage?.stage,
+      learningPolicy: learningSnapshot?.policy,
     });
     this.telemetry.log({
       stage: "generate",

@@ -1,7 +1,7 @@
 class StageMachine {
   constructor(options = {}) {
     this.stage = options.initialStage || "apprentice";
-    this.stats = {
+    this.stats = options.initialStats || {
       total: 0,
       success: 0,
       failures: 0,

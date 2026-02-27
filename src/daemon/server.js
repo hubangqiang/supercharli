@@ -4,6 +4,7 @@ const net = require("net");
 const { Kernel } = require("../core/kernel");
 const { SQLiteMemoryEngine } = require("../memory/sqliteMemoryEngine");
 const { Learner } = require("../learning/learner");
+const { SQLiteLearningStore } = require("../learning/sqliteLearningStore");
 const { Telemetry } = require("../observability/telemetry");
 const { BasicModelRouter } = require("../router/basicModelRouter");
 const { loadUserProfile } = require("../runtime/userProfile");
@@ -24,7 +25,8 @@ function createDaemonServer(options = {}) {
 
   const memory = new SQLiteMemoryEngine({ dbPath });
   const router = new BasicModelRouter({ env: options.env });
-  const learner = new Learner();
+  const learningStore = new SQLiteLearningStore({ dbPath, scope: "daemon-main" });
+  const learner = new Learner({ store: learningStore });
   const kernel = new Kernel(memory, router, undefined, telemetry, learner);
 
   const server = net.createServer((socket) => {
@@ -73,6 +75,9 @@ function createDaemonServer(options = {}) {
       server.close(() => {
         try {
           memory.close();
+        } catch {}
+        try {
+          learningStore.close();
         } catch {}
         try {
           if (fs.existsSync(socketPath)) fs.rmSync(socketPath, { force: true });

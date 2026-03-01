@@ -193,6 +193,23 @@ class Kernel {
 
     this.telemetry.log({ stage: "done", traceId, latencyMs });
 
+    const loadedPacks = Array.isArray(generation.result?.promptMeta?.loadedPacks)
+      ? generation.result.promptMeta.loadedPacks
+      : [];
+    if (this.memory && typeof this.memory.recordPromptSkills === "function") {
+      this.memory.recordPromptSkills({
+        createdAt: new Date().toISOString(),
+        sessionId: input.sessionId,
+        traceId,
+        route: route.route,
+        modelProvider: generation.result.provider,
+        modelName: generation.result.model,
+        promptTokensUsed: generation.result?.promptMeta?.usedTokens || 0,
+        droppedPacks: generation.result?.promptMeta?.droppedPacks || 0,
+        skills: loadedPacks,
+      });
+    }
+
     return {
       response,
       meta: {
@@ -227,6 +244,7 @@ class Kernel {
           promptTokensUsed: generation.result?.promptMeta?.usedTokens || 0,
           droppedPacks: generation.result?.promptMeta?.droppedPacks || 0,
           loadedPackIds: generation.result?.promptMeta?.loadedPackIds || [],
+          loadedSkillCount: loadedPacks.length,
         },
       },
     };

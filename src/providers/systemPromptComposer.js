@@ -16,6 +16,7 @@ function composeSystemPrompt(context = {}, options = {}) {
         usedTokens: 40,
         droppedPacks: 0,
         loadedPackIds: ["extractor-mode"],
+        loadedPacks: [{ id: "extractor-mode", tokens: 40, text: "Extractor mode: strict JSON only." }],
       },
     };
   }
@@ -32,6 +33,13 @@ function composeSystemPrompt(context = {}, options = {}) {
       usedTokens: applied.usedTokens,
       droppedPacks: applied.dropped,
       loadedPackIds: applied.selected.map((p) => p.id),
+      loadedPacks: applied.selected.map((p) => ({
+        id: p.id,
+        tokens: p.tokens,
+        text: p.text,
+        required: Boolean(p.required),
+        priority: Number(p.priority || 100),
+      })),
     },
   };
 }

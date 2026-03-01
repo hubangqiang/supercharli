@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { DatabaseSync } = require("node:sqlite");
 const { getDefaultDbPath } = require("../runtime/runtimePaths");
 const { classifyPatternKey, defaultStrategyForPattern } = require("./patternClassifier");
@@ -74,6 +75,30 @@ class SQLiteMemoryEngine {
       );
 
       CREATE INDEX IF NOT EXISTS idx_l1_session_id ON l1_events(session_id);
+
+      CREATE TABLE IF NOT EXISTS prompt_skill_catalog (
+        skill_id TEXT PRIMARY KEY,
+        latest_hash TEXT NOT NULL,
+        latest_text TEXT NOT NULL,
+        latest_preview TEXT NOT NULL,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        seen_count INTEGER NOT NULL DEFAULT 1
+      );
+
+      CREATE TABLE IF NOT EXISTS prompt_skill_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        trace_id TEXT NOT NULL,
+        route TEXT NOT NULL,
+        model_provider TEXT NOT NULL,
+        model_name TEXT NOT NULL,
+        prompt_tokens_used INTEGER NOT NULL DEFAULT 0,
+        dropped_packs INTEGER NOT NULL DEFAULT 0,
+        loaded_skill_ids_json TEXT NOT NULL,
+        loaded_skills_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
     `);
     this._ensureL2Columns();
     this.db.exec(`
@@ -82,6 +107,8 @@ class SQLiteMemoryEngine {
       CREATE INDEX IF NOT EXISTS idx_recon_candidates_status_created
       ON memory_reconsolidation_candidates(status, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_l3_created_at ON l3_timeline(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_prompt_skill_history_created ON prompt_skill_history(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_prompt_skill_history_session ON prompt_skill_history(session_id, created_at DESC);
     `);
 
     this.readL1Stmt = this.db.prepare(`
@@ -205,6 +232,43 @@ class SQLiteMemoryEngine {
       SELECT key, value, updated_at AS updatedAt
       FROM l4_identity
       ORDER BY key ASC
+    `);
+
+    this.upsertPromptSkillCatalogStmt = this.db.prepare(`
+      INSERT INTO prompt_skill_catalog
+      (skill_id, latest_hash, latest_text, latest_preview, first_seen_at, last_seen_at, seen_count)
+      VALUES (?, ?, ?, ?, ?, ?, 1)
+      ON CONFLICT(skill_id) DO UPDATE SET
+        latest_hash = excluded.latest_hash,
+        latest_text = excluded.latest_text,
+        latest_preview = excluded.latest_preview,
+        last_seen_at = excluded.last_seen_at,
+        seen_count = prompt_skill_catalog.seen_count + 1
+    `);
+
+    this.insertPromptSkillHistoryStmt = this.db.prepare(`
+      INSERT INTO prompt_skill_history
+      (session_id, trace_id, route, model_provider, model_name, prompt_tokens_used, dropped_packs,
+       loaded_skill_ids_json, loaded_skills_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    this.listPromptSkillCatalogStmt = this.db.prepare(`
+      SELECT skill_id AS skillId, latest_hash AS latestHash, latest_preview AS latestPreview,
+             first_seen_at AS firstSeenAt, last_seen_at AS lastSeenAt, seen_count AS seenCount
+      FROM prompt_skill_catalog
+      ORDER BY last_seen_at DESC
+      LIMIT ?
+    `);
+
+    this.listPromptSkillHistoryStmt = this.db.prepare(`
+      SELECT created_at AS createdAt, session_id AS sessionId, trace_id AS traceId, route,
+             model_provider AS modelProvider, model_name AS modelName,
+             prompt_tokens_used AS promptTokensUsed, dropped_packs AS droppedPacks,
+             loaded_skill_ids_json AS loadedSkillIdsJson, loaded_skills_json AS loadedSkillsJson
+      FROM prompt_skill_history
+      ORDER BY id DESC
+      LIMIT ?
     `);
   }
 
@@ -336,6 +400,61 @@ class SQLiteMemoryEngine {
     return out;
   }
 
+  recordPromptSkills(event = {}) {
+    const createdAt = event.createdAt || new Date().toISOString();
+    const rawSkills = Array.isArray(event.skills) ? event.skills : [];
+    const loadedSkills = [];
+    const seen = new Set();
+
+    for (const skill of rawSkills) {
+      const skillId = String(skill?.id || "").trim();
+      if (!skillId || seen.has(skillId)) continue;
+      seen.add(skillId);
+
+      const text = String(skill?.text || "");
+      const hash = sha256(text);
+      const preview = toPreview(text);
+      const tokens = Number(skill?.tokens || 0);
+
+      this.upsertPromptSkillCatalogStmt.run(
+        skillId,
+        hash,
+        text,
+        preview,
+        createdAt,
+        createdAt,
+      );
+      loadedSkills.push({ id: skillId, hash, preview, tokens });
+    }
+
+    this.insertPromptSkillHistoryStmt.run(
+      String(event.sessionId || ""),
+      String(event.traceId || ""),
+      String(event.route || "fast"),
+      String(event.modelProvider || ""),
+      String(event.modelName || ""),
+      Number(event.promptTokensUsed || 0),
+      Number(event.droppedPacks || 0),
+      JSON.stringify(loadedSkills.map((x) => x.id)),
+      JSON.stringify(loadedSkills),
+      createdAt,
+    );
+    return true;
+  }
+
+  listPromptSkillCatalog(limit = 50) {
+    return this.listPromptSkillCatalogStmt.all(Math.max(1, Number(limit) || 50));
+  }
+
+  listPromptSkillHistory(limit = 60) {
+    const rows = this.listPromptSkillHistoryStmt.all(Math.max(1, Number(limit) || 60));
+    return rows.map((row) => ({
+      ...row,
+      loadedSkillIds: parseJson(row.loadedSkillIdsJson, []),
+      loadedSkills: parseJson(row.loadedSkillsJson, []),
+    }));
+  }
+
   close() {
     this.db.close();
   }
@@ -351,6 +470,22 @@ class SQLiteMemoryEngine {
     add("recall_count", "recall_count INTEGER NOT NULL DEFAULT 0");
     add("last_recalled_at", "last_recalled_at TEXT");
     add("source", "source TEXT NOT NULL DEFAULT 'promotion-score'");
+  }
+}
+
+function sha256(text) {
+  return crypto.createHash("sha256").update(String(text || "")).digest("hex");
+}
+
+function toPreview(text) {
+  return String(text || "").replace(/\s+/g, " ").trim().slice(0, 240);
+}
+
+function parseJson(s, fallback) {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return fallback;
   }
 }
 

@@ -14,6 +14,8 @@ class InMemoryMemoryEngine {
     this.reconsolidationCandidates = [];
     this.l3 = [];
     this.l4 = {};
+    this.promptSkillCatalog = new Map();
+    this.promptSkillHistory = [];
   }
 
   readL1(sessionId) {
@@ -133,6 +135,76 @@ class InMemoryMemoryEngine {
   readL4Identity() {
     return { ...this.l4 };
   }
+
+  recordPromptSkills(event = {}) {
+    const skills = Array.isArray(event.skills) ? event.skills : [];
+    const createdAt = event.createdAt || new Date().toISOString();
+    const loadedSkills = [];
+    for (const skill of skills) {
+      const skillId = String(skill?.id || "").trim();
+      if (!skillId) continue;
+      const text = String(skill?.text || "");
+      const hash = hashText(text);
+      const preview = toPreview(text);
+      const current = this.promptSkillCatalog.get(skillId);
+      this.promptSkillCatalog.set(skillId, {
+        skillId,
+        latestHash: hash,
+        latestText: text,
+        latestPreview: preview,
+        firstSeenAt: current?.firstSeenAt || createdAt,
+        lastSeenAt: createdAt,
+        seenCount: Number(current?.seenCount || 0) + 1,
+      });
+      loadedSkills.push({
+        id: skillId,
+        hash,
+        preview,
+        tokens: Number(skill?.tokens || 0),
+      });
+    }
+
+    this.promptSkillHistory.push({
+      createdAt,
+      sessionId: String(event.sessionId || ""),
+      traceId: String(event.traceId || ""),
+      route: String(event.route || "fast"),
+      modelProvider: String(event.modelProvider || ""),
+      modelName: String(event.modelName || ""),
+      promptTokensUsed: Number(event.promptTokensUsed || 0),
+      droppedPacks: Number(event.droppedPacks || 0),
+      loadedSkillIds: loadedSkills.map((x) => x.id),
+      loadedSkills,
+    });
+    this.promptSkillHistory = this.promptSkillHistory.slice(-200);
+    return true;
+  }
+
+  listPromptSkillCatalog(limit = 50) {
+    return Array.from(this.promptSkillCatalog.values())
+      .sort((a, b) => String(b.lastSeenAt || "").localeCompare(String(a.lastSeenAt || "")))
+      .slice(0, Math.max(1, Number(limit) || 50));
+  }
+
+  listPromptSkillHistory(limit = 60) {
+    return this.promptSkillHistory
+      .slice(-Math.max(1, Number(limit) || 60))
+      .reverse();
+  }
+}
+
+function hashText(text) {
+  const s = String(text || "");
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+  }
+  return `fnv1a-${(h >>> 0).toString(16)}`;
+}
+
+function toPreview(text) {
+  return String(text || "").replace(/\s+/g, " ").trim().slice(0, 240);
 }
 
 function clampRecallLimit(limit) {

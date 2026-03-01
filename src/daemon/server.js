@@ -115,6 +115,10 @@ async function handleRequest(message, kernel, telemetry, env) {
       personaProfile: loadUserProfile(env),
     });
 
+    if (out.meta?.augmentationMode === "simulation-local" && env.SUPERCHARLI_ALLOW_MOCK_CHAT !== "1") {
+      throw new Error("mock_provider_not_allowed: configure real provider or set SUPERCHARLI_ALLOW_MOCK_CHAT=1 for debugging");
+    }
+
     return {
       type: "chat",
       sessionId: message.sessionId,

@@ -29,7 +29,7 @@ async function run() {
   const socketPath = path.join(tmp, "daemon.sock");
   const dbPath = path.join(tmp, "memory.db");
 
-  const daemon = createDaemonServer({ socketPath, dbPath, env: {} });
+  const daemon = createDaemonServer({ socketPath, dbPath, env: { SUPERCHARLI_ALLOW_MOCK_CHAT: "1" } });
   try {
     await daemon.start();
   } catch (err) {
@@ -48,7 +48,7 @@ async function run() {
   const chat = await send(socketPath, { type: "chat", sessionId: "d1", text: "你好" });
   assert.strictEqual(chat.ok, true);
   assert.strictEqual(chat.data.type, "chat");
-  assert.ok(chat.data.response.conclusion.includes("建议"));
+  assert.ok(chat.data.response.conclusion.includes("本地模拟模式"));
 
   const metrics = await send(socketPath, { type: "metrics" });
   assert.strictEqual(metrics.ok, true);

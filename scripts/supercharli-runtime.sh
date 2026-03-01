@@ -3,6 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME_HOME="${SUPERCHARLI_RUNTIME_HOME:-$HOME/supercharli-runtime}"
+USER_ENV_FILE="${SUPERCHARLI_ENV_FILE:-$HOME/.config/supercharli/supercharli.env.sh}"
+
+if [[ "${SUPERCHARLI_NO_AUTO_SOURCE:-0}" != "1" && -f "$USER_ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$USER_ENV_FILE"
+fi
 
 export SUPERCHARLI_DB_PATH="${SUPERCHARLI_DB_PATH:-$RUNTIME_HOME/data/supercharli.db}"
 export SUPERCHARLI_BACKUP_DIR="${SUPERCHARLI_BACKUP_DIR:-$RUNTIME_HOME/backups}"

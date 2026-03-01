@@ -11,6 +11,8 @@
 - `docs/principles/product-constitution.en.md`
 - `docs/principles/engineering-constitution.zh-CN.md`
 - `docs/principles/engineering-constitution.en.md`
+- `docs/principles/model-augmentation-boundary.zh-CN.md`
+- `docs/principles/model-augmentation-boundary.en.md`
 
 ## 2. 规划层（Plans）
 - `docs/plans/scope.md`
@@ -78,5 +80,5 @@
 
 ## 5. 默认角色背景（Config）
 - `config/charli.profile.base.json`
-- `config/johnny.silverhand.background.zh-CN.md`
-- `config/johnny.silverhand.background.en.md`
+- `config/jarvis.background.zh-CN.md`
+- `config/jarvis.background.en.md`

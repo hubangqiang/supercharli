@@ -24,6 +24,11 @@ source ~/.config/supercharli/supercharli.env.sh
 - 记忆数据在仓库外，默认在 `~/supercharli-runtime`。
 - 角色/性格基础信息在仓库内可版本化。
 - 用户可在本地覆盖自己的角色/性格配置。
+- 超级查理是大模型增强层，不替代大模型本体能力。
+- 本地记忆与学习用于连续性与治理，不等于模型预训练。
+- 原则文档：
+  - `docs/principles/model-augmentation-boundary.zh-CN.md`
+  - `docs/principles/model-augmentation-boundary.en.md`
 
 ## 文档入口
 - 中文：`docs/index.zh-CN.md`

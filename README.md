@@ -6,6 +6,13 @@ This repository separates two layers clearly:
 - Product principles: personality, memory, evolution constraints.
 - Engineering principles: availability, performance, maintainability, extensibility.
 
+## Model Augmentation Boundary
+- SuperCharli augments large models and does not replace model intelligence.
+- Memory and learning are local continuity/governance layers, not model pretraining substitutes.
+- Principle doc:
+  - `docs/principles/model-augmentation-boundary.en.md`
+  - `docs/principles/model-augmentation-boundary.zh-CN.md`
+
 ## Current Status
 - Principles and constitutions are established.
 - V1 planning templates are in place.

@@ -7,6 +7,8 @@
 - `docs/principles/product-constitution.zh-CN.md`
 - `docs/principles/engineering-constitution.en.md`
 - `docs/principles/engineering-constitution.zh-CN.md`
+- `docs/principles/model-augmentation-boundary.en.md`
+- `docs/principles/model-augmentation-boundary.zh-CN.md`
 
 ## 2. Plans
 - `docs/plans/scope.md`
@@ -73,5 +75,5 @@
 
 ## 5. Default Persona Background (Config)
 - `config/charli.profile.base.json`
-- `config/johnny.silverhand.background.zh-CN.md`
-- `config/johnny.silverhand.background.en.md`
+- `config/jarvis.background.zh-CN.md`
+- `config/jarvis.background.en.md`

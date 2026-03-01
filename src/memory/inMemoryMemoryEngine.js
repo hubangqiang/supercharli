@@ -16,6 +16,8 @@ class InMemoryMemoryEngine {
     this.l4 = {};
     this.promptSkillCatalog = new Map();
     this.promptSkillHistory = [];
+    this.skillLibrary = new Map();
+    this.skillHistory = [];
   }
 
   readL1(sessionId) {
@@ -191,6 +193,79 @@ class InMemoryMemoryEngine {
       .slice(-Math.max(1, Number(limit) || 60))
       .reverse();
   }
+
+  upsertSkill(skill = {}) {
+    const skillId = String(skill.skillId || skill.id || "").trim();
+    if (!skillId) return false;
+    const now = skill.updatedAt || new Date().toISOString();
+    const current = this.skillLibrary.get(skillId) || {};
+    this.skillLibrary.set(skillId, {
+      skillId,
+      title: String(skill.title || current.title || ""),
+      applicability: String(skill.applicability || current.applicability || ""),
+      method: String(skill.method || current.method || ""),
+      boundaries: String(skill.boundaries || current.boundaries || ""),
+      confidence: Number(skill.confidence ?? current.confidence ?? 0.7),
+      source: String(skill.source || current.source || "model-extracted"),
+      status: String(skill.status || current.status || "published"),
+      createdAt: current.createdAt || now,
+      updatedAt: now,
+      lastUsedAt: current.lastUsedAt || null,
+      useCount: Number(current.useCount || 0),
+    });
+    return true;
+  }
+
+  recallSkills(text, limit = 3) {
+    const q = String(text || "").toLowerCase();
+    const rows = Array.from(this.skillLibrary.values()).filter((x) => x.status === "published");
+    const scored = rows
+      .map((x) => {
+        const blob = `${x.skillId} ${x.title} ${x.applicability} ${x.method}`.toLowerCase();
+        const hit = q && blob.includes(q) ? 1 : 0;
+        const overlap = tokenOverlap(blob, q);
+        const score = overlap * 1.4 + hit + Number(x.confidence || 0) * 0.3;
+        return { ...x, _score: score };
+      })
+      .sort((a, b) => b._score - a._score || String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+    return scored.slice(0, Math.max(1, Number(limit) || 3)).map(({ _score, ...x }) => x);
+  }
+
+  recordSkillUsage(usage = {}) {
+    const ids = Array.isArray(usage.skillIds) ? usage.skillIds : [];
+    const createdAt = usage.createdAt || new Date().toISOString();
+    for (const id of ids) {
+      const skillId = String(id || "").trim();
+      if (!skillId) continue;
+      const row = this.skillLibrary.get(skillId);
+      if (!row) continue;
+      row.useCount = Number(row.useCount || 0) + 1;
+      row.lastUsedAt = createdAt;
+      this.skillLibrary.set(skillId, row);
+    }
+    this.skillHistory.push({
+      createdAt,
+      sessionId: String(usage.sessionId || ""),
+      traceId: String(usage.traceId || ""),
+      modelProvider: String(usage.modelProvider || ""),
+      modelName: String(usage.modelName || ""),
+      route: String(usage.route || "fast"),
+      skillIds: ids.map((x) => String(x || "")).filter(Boolean),
+      reason: String(usage.reason || "inference-time-injection"),
+    });
+    this.skillHistory = this.skillHistory.slice(-300);
+    return true;
+  }
+
+  listSkills(limit = 50) {
+    return Array.from(this.skillLibrary.values())
+      .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))
+      .slice(0, Math.max(1, Number(limit) || 50));
+  }
+
+  listSkillHistory(limit = 60) {
+    return this.skillHistory.slice(-Math.max(1, Number(limit) || 60)).reverse();
+  }
 }
 
 function hashText(text) {
@@ -205,6 +280,17 @@ function hashText(text) {
 
 function toPreview(text) {
   return String(text || "").replace(/\s+/g, " ").trim().slice(0, 240);
+}
+
+function tokenOverlap(blob, query) {
+  if (!blob || !query) return 0;
+  const q = new Set(String(query).split(/[\s,，。.!?;；:：\-_/]+/).filter((x) => x.length >= 2));
+  if (!q.size) return 0;
+  let hit = 0;
+  for (const token of q) {
+    if (blob.includes(token)) hit += 1;
+  }
+  return hit / q.size;
 }
 
 function clampRecallLimit(limit) {

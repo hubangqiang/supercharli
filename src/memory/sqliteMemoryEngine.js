@@ -99,6 +99,33 @@ class SQLiteMemoryEngine {
         loaded_skills_json TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS skill_library (
+        skill_id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        applicability TEXT NOT NULL,
+        method TEXT NOT NULL,
+        boundaries TEXT NOT NULL,
+        confidence REAL NOT NULL DEFAULT 0.7,
+        source TEXT NOT NULL DEFAULT 'model-extracted',
+        status TEXT NOT NULL DEFAULT 'published',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_used_at TEXT,
+        use_count INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS skill_usage_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        trace_id TEXT NOT NULL,
+        route TEXT NOT NULL,
+        model_provider TEXT NOT NULL,
+        model_name TEXT NOT NULL,
+        skill_ids_json TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
     `);
     this._ensureL2Columns();
     this.db.exec(`
@@ -109,6 +136,9 @@ class SQLiteMemoryEngine {
       CREATE INDEX IF NOT EXISTS idx_l3_created_at ON l3_timeline(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_prompt_skill_history_created ON prompt_skill_history(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_prompt_skill_history_session ON prompt_skill_history(session_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_skill_library_status_updated ON skill_library(status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_skill_usage_created ON skill_usage_history(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_skill_usage_session ON skill_usage_history(session_id, created_at DESC);
     `);
 
     this.readL1Stmt = this.db.prepare(`
@@ -267,6 +297,68 @@ class SQLiteMemoryEngine {
              prompt_tokens_used AS promptTokensUsed, dropped_packs AS droppedPacks,
              loaded_skill_ids_json AS loadedSkillIdsJson, loaded_skills_json AS loadedSkillsJson
       FROM prompt_skill_history
+      ORDER BY id DESC
+      LIMIT ?
+    `);
+
+    this.upsertSkillStmt = this.db.prepare(`
+      INSERT INTO skill_library
+      (skill_id, title, applicability, method, boundaries, confidence, source, status, created_at, updated_at, last_used_at, use_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
+      ON CONFLICT(skill_id) DO UPDATE SET
+        title = excluded.title,
+        applicability = excluded.applicability,
+        method = excluded.method,
+        boundaries = excluded.boundaries,
+        confidence = excluded.confidence,
+        source = excluded.source,
+        status = excluded.status,
+        updated_at = excluded.updated_at
+    `);
+
+    this.findSkillsStmt = this.db.prepare(`
+      SELECT skill_id AS skillId, title, applicability, method, boundaries, confidence, source, status,
+             created_at AS createdAt, updated_at AS updatedAt, last_used_at AS lastUsedAt, use_count AS useCount,
+             (
+               CASE WHEN instr(LOWER(skill_id), LOWER(?)) > 0 THEN 2 ELSE 0 END +
+               CASE WHEN instr(LOWER(title), LOWER(?)) > 0 THEN 2 ELSE 0 END +
+               CASE WHEN instr(LOWER(applicability), LOWER(?)) > 0 THEN 1 ELSE 0 END +
+               CASE WHEN instr(LOWER(method), LOWER(?)) > 0 THEN 1 ELSE 0 END +
+               confidence
+             ) AS score
+      FROM skill_library
+      WHERE status = 'published'
+      ORDER BY score DESC, updated_at DESC
+      LIMIT ?
+    `);
+
+    this.listSkillsStmt = this.db.prepare(`
+      SELECT skill_id AS skillId, title, applicability, method, boundaries, confidence, source, status,
+             created_at AS createdAt, updated_at AS updatedAt, last_used_at AS lastUsedAt, use_count AS useCount
+      FROM skill_library
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `);
+
+    this.touchSkillUsageStmt = this.db.prepare(`
+      UPDATE skill_library
+      SET use_count = use_count + 1,
+          last_used_at = ?,
+          updated_at = ?
+      WHERE skill_id = ?
+    `);
+
+    this.insertSkillUsageStmt = this.db.prepare(`
+      INSERT INTO skill_usage_history
+      (session_id, trace_id, route, model_provider, model_name, skill_ids_json, reason, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    this.listSkillHistoryStmt = this.db.prepare(`
+      SELECT created_at AS createdAt, session_id AS sessionId, trace_id AS traceId, route,
+             model_provider AS modelProvider, model_name AS modelName,
+             skill_ids_json AS skillIdsJson, reason
+      FROM skill_usage_history
       ORDER BY id DESC
       LIMIT ?
     `);
@@ -452,6 +544,61 @@ class SQLiteMemoryEngine {
       ...row,
       loadedSkillIds: parseJson(row.loadedSkillIdsJson, []),
       loadedSkills: parseJson(row.loadedSkillsJson, []),
+    }));
+  }
+
+  upsertSkill(skill = {}) {
+    const skillId = String(skill.skillId || skill.id || "").trim();
+    if (!skillId) return false;
+    const now = skill.updatedAt || new Date().toISOString();
+    this.upsertSkillStmt.run(
+      skillId,
+      String(skill.title || ""),
+      String(skill.applicability || ""),
+      String(skill.method || ""),
+      String(skill.boundaries || ""),
+      Number.isFinite(Number(skill.confidence)) ? Number(skill.confidence) : 0.7,
+      String(skill.source || "model-extracted"),
+      String(skill.status || "published"),
+      String(skill.createdAt || now),
+      now,
+    );
+    return true;
+  }
+
+  recallSkills(text, limit = 3) {
+    const q = String(text || "").trim();
+    if (!q) return this.listSkills(Math.max(1, Number(limit) || 3)).slice(0, Math.max(1, Number(limit) || 3));
+    return this.findSkillsStmt.all(q, q, q, q, Math.max(1, Number(limit) || 3));
+  }
+
+  recordSkillUsage(usage = {}) {
+    const createdAt = usage.createdAt || new Date().toISOString();
+    const ids = Array.isArray(usage.skillIds) ? usage.skillIds.map((x) => String(x || "").trim()).filter(Boolean) : [];
+    for (const skillId of ids) {
+      this.touchSkillUsageStmt.run(createdAt, createdAt, skillId);
+    }
+    this.insertSkillUsageStmt.run(
+      String(usage.sessionId || ""),
+      String(usage.traceId || ""),
+      String(usage.route || "fast"),
+      String(usage.modelProvider || ""),
+      String(usage.modelName || ""),
+      JSON.stringify(ids),
+      String(usage.reason || "inference-time-injection"),
+      createdAt,
+    );
+    return true;
+  }
+
+  listSkills(limit = 50) {
+    return this.listSkillsStmt.all(Math.max(1, Number(limit) || 50));
+  }
+
+  listSkillHistory(limit = 60) {
+    return this.listSkillHistoryStmt.all(Math.max(1, Number(limit) || 60)).map((row) => ({
+      ...row,
+      skillIds: parseJson(row.skillIdsJson, []),
     }));
   }
 

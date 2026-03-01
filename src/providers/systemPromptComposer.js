@@ -95,6 +95,13 @@ function buildRegistry(context) {
       maxTokens: 420,
       text: materializeMemoryPack(context),
     },
+    "dynamic-skills-pack": {
+      id: "dynamic-skills-pack",
+      priority: 4,
+      required: false,
+      maxTokens: 420,
+      text: materializeSkillPack(context.skills),
+    },
     "risk-pack": {
       id: "risk-pack",
       priority: 5,
@@ -107,6 +114,26 @@ function buildRegistry(context) {
       ].join("\n"),
     },
   };
+}
+
+function materializeSkillPack(skills) {
+  const rows = Array.isArray(skills) ? skills.filter(Boolean).slice(0, 3) : [];
+  if (!rows.length) return "";
+  const lines = ["Dynamic skill pack (method assets, not fixed answers):"];
+  for (const skill of rows) {
+    const id = String(skill.skillId || skill.id || "").trim();
+    if (!id) continue;
+    const title = String(skill.title || "").trim();
+    const applicability = String(skill.applicability || "").replace(/\s+/g, " ").trim();
+    const method = String(skill.method || "").replace(/\s+/g, " ").trim();
+    const boundaries = String(skill.boundaries || "").replace(/\s+/g, " ").trim();
+    lines.push(`- [${id}] ${title || "untitled"}`);
+    if (applicability) lines.push(`  apply-when: ${applicability}`);
+    if (method) lines.push(`  method: ${method}`);
+    if (boundaries) lines.push(`  boundary: ${boundaries}`);
+  }
+  lines.push("- Use only relevant parts of these skills; do not copy as rigid template.");
+  return lines.join("\n");
 }
 
 module.exports = { composeSystemPrompt };

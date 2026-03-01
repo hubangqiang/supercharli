@@ -47,6 +47,27 @@ function run() {
   assert.strictEqual(history[0].traceId, "trace-2", "latest history should come first");
   assert.ok(Array.isArray(history[0].loadedSkills), "history row should contain loaded skills details");
 
+  engine.upsertSkill({
+    skillId: "testcase-3part",
+    title: "测试用例三段式",
+    applicability: "当用户要求测试用例设计时",
+    method: "步骤+预期+实际",
+    boundaries: "不写具体产品结论",
+    confidence: 0.88,
+  });
+  const recalledSkills = engine.recallSkills("我想继续写测试用例", 3);
+  assert.ok(recalledSkills.some((x) => x.skillId === "testcase-3part"), "should recall published skills by query");
+  engine.recordSkillUsage({
+    sessionId: "main",
+    traceId: "trace-3",
+    route: "deep",
+    modelProvider: "anthropicrelay",
+    modelName: "claude-sonnet-4",
+    skillIds: ["testcase-3part"],
+  });
+  const skillHistory = engine.listSkillHistory(10);
+  assert.ok(skillHistory.length >= 1, "skill usage history should be persisted");
+
   engine.close();
   fs.rmSync(root, { recursive: true, force: true });
   console.log("prompt skill store tests: PASS");

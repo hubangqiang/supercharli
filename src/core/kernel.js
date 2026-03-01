@@ -26,6 +26,8 @@ class Kernel {
 
     const l1 = this.memory.readL1(input.sessionId);
     const recalled = this.memory.recallL2(input.text);
+    const recalledSkills =
+      this.memory && typeof this.memory.recallSkills === "function" ? this.memory.recallSkills(input.text, 3) : [];
     const l3 = typeof this.memory.readL3Milestones === "function" ? this.memory.readL3Milestones(1) : [];
     const l4 = typeof this.memory.readL4Identity === "function" ? this.memory.readL4Identity() : {};
     this.telemetry.log({
@@ -46,6 +48,7 @@ class Kernel {
             riskSignals: input.riskSignals,
             l1,
             recalled,
+            skills: recalledSkills,
             l3,
             l4,
             focusMode,
@@ -77,6 +80,7 @@ class Kernel {
       metacognitiveConfidence: mindCtx?.metacognition?.confidence,
       thinkingMode: mindCtx?.thinking?.mode,
       workspace: mindCtx?.workspace?.blocks,
+      skills: recalledSkills,
       l3,
       l4,
       focusMode,
@@ -180,6 +184,27 @@ class Kernel {
       });
     }
 
+    if (
+      augmentationMode === "external-model-augmented" &&
+      this.memory &&
+      typeof this.memory.upsertSkill === "function" &&
+      shouldExtractSkillAsset(input.text, learning, focusMode)
+    ) {
+      const extractedSkill = await extractModelSkillAsset(this.router, route.model, input.text, generated.content);
+      if (extractedSkill?.shouldStore && extractedSkill.skillId) {
+        this.memory.upsertSkill({
+          skillId: extractedSkill.skillId,
+          title: extractedSkill.title,
+          applicability: extractedSkill.applicability,
+          method: extractedSkill.method,
+          boundaries: extractedSkill.boundaries,
+          confidence: extractedSkill.confidence,
+          source: "model-extracted",
+          status: "published",
+        });
+      }
+    }
+
     const selfAudit =
       this.mind && typeof this.mind.finalizeTurn === "function" ? this.mind.finalizeTurn(learning) : null;
     if (selfAudit) {
@@ -207,6 +232,18 @@ class Kernel {
         promptTokensUsed: generation.result?.promptMeta?.usedTokens || 0,
         droppedPacks: generation.result?.promptMeta?.droppedPacks || 0,
         skills: loadedPacks,
+      });
+    }
+    if (this.memory && typeof this.memory.recordSkillUsage === "function" && recalledSkills.length) {
+      this.memory.recordSkillUsage({
+        createdAt: new Date().toISOString(),
+        sessionId: input.sessionId,
+        traceId,
+        route: route.route,
+        modelProvider: generation.result.provider,
+        modelName: generation.result.model,
+        skillIds: recalledSkills.map((x) => x.skillId || x.id).filter(Boolean),
+        reason: "inference-time-injection",
       });
     }
 
@@ -245,6 +282,7 @@ class Kernel {
           droppedPacks: generation.result?.promptMeta?.droppedPacks || 0,
           loadedPackIds: generation.result?.promptMeta?.loadedPackIds || [],
           loadedSkillCount: loadedPacks.length,
+          appliedSkillIds: recalledSkills.map((x) => x.skillId || x.id).filter(Boolean),
         },
       },
     };
@@ -279,6 +317,14 @@ function isWorkFocusRequest(text) {
     /\b(pr|merge|review|deploy|release|roadmap|sprint|ticket)\b/,
   ];
   return patterns.some((p) => p.test(s));
+}
+
+function shouldExtractSkillAsset(text, learning, focusMode) {
+  const s = String(text || "").toLowerCase();
+  if (focusMode) return true;
+  if (learning?.event?.shouldLearn && learning?.event?.signalSource === "model-extracted") return true;
+  if (/标准|模板|流程|方法|我教你|规范|checklist|playbook|pattern/i.test(s)) return true;
+  return false;
 }
 
 function resolveAugmentationMode(provider) {
@@ -319,6 +365,40 @@ async function extractModelLearningSignals(router, modelRef, userText, assistant
   }
 }
 
+async function extractModelSkillAsset(router, modelRef, userText, assistantText) {
+  const lang = detectLanguage(userText);
+  const isZh = lang === "zh";
+  const prompt = [
+    isZh ? "你是技能资产提炼器。" : "You are a skill asset extractor.",
+    isZh
+      ? "基于用户输入和助手回复，提炼一个可复用技能资产（方法而非答案）。"
+      : "Given user input and assistant response, extract one reusable skill asset (method, not fixed answer).",
+    isZh
+      ? "只返回JSON，字段：skillId,title,applicability,method,boundaries,confidence(0-1),shouldStore(boolean)。"
+      : "Return JSON only with keys: skillId,title,applicability,method,boundaries,confidence(0-1),shouldStore(boolean).",
+    isZh
+      ? "skillId 用短横线命名。若无可复用技能，shouldStore=false。"
+      : "Use kebab-case for skillId. If nothing reusable, set shouldStore=false.",
+    "",
+    `${isZh ? "用户" : "User"}: ${String(userText || "").slice(0, 1400)}`,
+    `${isZh ? "助手" : "Assistant"}: ${String(assistantText || "").slice(0, 1400)}`,
+  ].join("\n");
+
+  try {
+    const out = await router.generate(modelRef, {
+      text: prompt,
+      l1: [],
+      recalled: [],
+      severity: "normal",
+      personaProfile: null,
+      extractorMode: true,
+    });
+    return parseSkillAssetJson(out?.content || "");
+  } catch {
+    return null;
+  }
+}
+
 function parseLearningSignalJson(text) {
   const raw = String(text || "");
   const block = raw.match(/\{[\s\S]*\}/);
@@ -333,6 +413,44 @@ function parseLearningSignalJson(text) {
 
 function detectLanguage(text) {
   return /[\u4e00-\u9fff]/.test(String(text || "")) ? "zh" : "en";
+}
+
+function parseSkillAssetJson(text) {
+  const raw = String(text || "");
+  const block = raw.match(/\{[\s\S]*\}/);
+  if (!block) return null;
+  try {
+    const parsed = JSON.parse(block[0]);
+    const skillId = sanitizeSkillId(parsed.skillId);
+    if (!skillId) return null;
+    return {
+      skillId,
+      title: String(parsed.title || "").trim(),
+      applicability: String(parsed.applicability || "").trim(),
+      method: String(parsed.method || "").trim(),
+      boundaries: String(parsed.boundaries || "").trim(),
+      confidence: clamp01(Number(parsed.confidence || 0)),
+      shouldStore: Boolean(parsed.shouldStore),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeSkillId(v) {
+  const s = String(v || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}-]/gu, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!s || s.length < 3) return "";
+  return s.slice(0, 64);
+}
+
+function clamp01(v) {
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(1, v));
 }
 
 module.exports = { Kernel };

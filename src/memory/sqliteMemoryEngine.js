@@ -252,8 +252,9 @@ class SQLiteMemoryEngine {
     const now = new Date().toISOString();
     const existing = this.getL2ByKeyStmt.get(key);
     const currentStrength = Number(existing?.strength || 0.6);
-    const nextStrength = Math.min(2.5, (currentStrength * 0.7) + (decision.score * 0.8));
-    const confidence = Number(Math.min(0.95, Math.max(0.5, decision.score)).toFixed(2));
+    const effectiveScore = decision.score;
+    const nextStrength = Math.min(2.5, (currentStrength * 0.7) + (effectiveScore * 0.8));
+    const confidence = Number(Math.min(0.95, Math.max(0.5, effectiveScore)).toFixed(2));
     const nextSummary = `Repeated pattern detected: ${key}`;
     const nextStrategy = defaultStrategyForPattern(key);
 

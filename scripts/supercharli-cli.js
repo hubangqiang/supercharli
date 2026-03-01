@@ -125,6 +125,9 @@ async function runSingle(args) {
   });
 
   console.log(data.response.conclusion);
+  if (data?.meta?.learningSignalSummary) {
+    console.log(`learn: ${data.meta.learningSignalSummary}`);
+  }
 }
 
 async function runInteractive(args) {
@@ -174,6 +177,10 @@ async function runInteractive(args) {
         complexity: deepMode ? "deep" : undefined,
       });
       console.log(`charli: ${data.response.conclusion}`);
+      const learned = data?.meta?.learningSignalSummary;
+      if (learned) {
+        console.log(`learn: ${learned}`);
+      }
     } catch (err) {
       console.error(`error: ${err.message}`);
     }

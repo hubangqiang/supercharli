@@ -62,7 +62,8 @@ class InMemoryMemoryEngine {
 
     const now = new Date().toISOString();
     const current = this.l2.get(key);
-    const strength = Math.min(2.5, (Number(current?.strength || 0.6) * 0.7) + (score.score * 0.8));
+    const effectiveScore = score.score;
+    const strength = Math.min(2.5, (Number(current?.strength || 0.6) * 0.7) + (effectiveScore * 0.8));
     const nextStrategy = defaultStrategyForPattern(key);
 
     if (current && current.strategy !== nextStrategy) {
@@ -70,7 +71,7 @@ class InMemoryMemoryEngine {
         key,
         proposedSummary: `Candidate update for ${key}`,
         proposedStrategy: nextStrategy,
-        confidence: Number(Math.min(0.95, Math.max(0.5, score.score)).toFixed(2)),
+        confidence: Number(Math.min(0.95, Math.max(0.5, effectiveScore)).toFixed(2)),
         sourceText: String(entry.text || ""),
         status: "pending",
         createdAt: now,
@@ -83,7 +84,7 @@ class InMemoryMemoryEngine {
       strategy: current?.strategy || nextStrategy,
       updatedAt: now,
       strength,
-      confidence: Number(Math.min(0.95, Math.max(0.5, score.score)).toFixed(2)),
+      confidence: Number(Math.min(0.95, Math.max(0.5, effectiveScore)).toFixed(2)),
       recallCount: Number(current?.recallCount || 0),
       lastRecalledAt: current?.lastRecalledAt || null,
     });

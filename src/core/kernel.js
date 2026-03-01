@@ -139,6 +139,10 @@ class Kernel {
     const latencyMs = Date.now() - started;
 
     const activeLearning = isActiveLearningRequest(input.text) || focusMode;
+    const modelLearningSignals =
+      activeLearning && this.router && typeof this.router.generate === "function" && augmentationMode === "external-model-augmented"
+        ? await extractModelLearningSignals(this.router, route.model, input.text, generated.content)
+        : null;
     let learning = null;
     if (this.learner && typeof this.learner.observeTurn === "function") {
       learning = this.learner.observeTurn({
@@ -149,6 +153,7 @@ class Kernel {
         fallbackUsed: Boolean(generation.fallbackUsed),
         activeLearning,
         focusMode,
+        modelSignals: modelLearningSignals,
       });
       this.telemetry.log({
         stage: "learn",
@@ -198,6 +203,9 @@ class Kernel {
         augmentationMode,
         usingExternalModel: augmentationMode === "external-model-augmented",
         boundaryNote: "local-memory-learning-augment-only",
+        learningSignalSource: learning?.event?.signalSource || "none",
+        learningSignalConfidence: learning?.event?.signalConfidence || 0,
+        learningSignalSummary: learning?.event?.summary || "",
       },
     };
   }
@@ -211,6 +219,7 @@ function isActiveLearningRequest(text) {
     /主动学习/,
     /复盘/,
     /总结(一下|下)?/,
+    /我教你|记住这个|模板是|按这个格式/,
     /learn\b/,
     /reflect\b/,
   ];
@@ -234,6 +243,44 @@ function isWorkFocusRequest(text) {
 
 function resolveAugmentationMode(provider) {
   return provider === "mock" || provider === "local" ? "simulation-local" : "external-model-augmented";
+}
+
+async function extractModelLearningSignals(router, modelRef, userText, assistantText) {
+  const prompt = [
+    "You are a learning-signal extractor.",
+    "Given user input and assistant response, extract one reusable learning signal.",
+    "Return JSON only with keys:",
+    "patternKey, outcome(success|failure|neutral), shouldLearn(boolean), summary, strategy, confidence(0-1).",
+    "If no meaningful reusable signal, set shouldLearn=false and patternKey='general-execution-pattern'.",
+    "",
+    `User: ${String(userText || "").slice(0, 1200)}`,
+    `Assistant: ${String(assistantText || "").slice(0, 1200)}`,
+  ].join("\n");
+
+  try {
+    const out = await router.generate(modelRef, {
+      text: prompt,
+      l1: [],
+      recalled: [],
+      severity: "normal",
+      personaProfile: null,
+    });
+    return parseLearningSignalJson(out?.content || "");
+  } catch {
+    return null;
+  }
+}
+
+function parseLearningSignalJson(text) {
+  const raw = String(text || "");
+  const block = raw.match(/\{[\s\S]*\}/);
+  if (!block) return null;
+  try {
+    const parsed = JSON.parse(block[0]);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 module.exports = { Kernel };

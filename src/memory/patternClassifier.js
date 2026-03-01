@@ -19,5 +19,4 @@ function defaultStrategyForPattern(key) {
   };
   return map[key] || map["general-execution-pattern"];
 }
-
 module.exports = { classifyPatternKey, defaultStrategyForPattern };

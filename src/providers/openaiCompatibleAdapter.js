@@ -51,7 +51,7 @@ class OpenAICompatibleAdapter {
         throw new Error("provider_error:empty_content");
       }
 
-      return { model, content };
+      return { model, content, promptMeta: composed.meta };
     } finally {
       clearTimeout(timer);
     }

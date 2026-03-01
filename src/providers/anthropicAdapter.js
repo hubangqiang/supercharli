@@ -50,7 +50,7 @@ class AnthropicAdapter {
         throw new Error("provider_error:empty_content");
       }
 
-      return { model, content: text };
+      return { model, content: text, promptMeta: composed.meta };
     } finally {
       clearTimeout(timer);
     }

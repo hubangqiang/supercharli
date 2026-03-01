@@ -46,7 +46,7 @@ class GeminiAdapter {
         throw new Error("provider_error:empty_content");
       }
 
-      return { model, content: text };
+      return { model, content: text, promptMeta: promptPlan.meta };
     } finally {
       clearTimeout(timer);
     }

@@ -130,10 +130,11 @@ async function runSingle(args) {
 async function runInteractive(args) {
   const sessionId = resolveSessionId(args.sessionId);
   console.log(`SuperCharli interactive mode (session=${sessionId})`);
-  console.log("Type /exit to quit, /deep to toggle deep mode, /metrics for runtime metrics.");
+  console.log("Type /exit to quit, /deep to toggle deep mode, /metrics for runtime metrics, /injection for last prompt injection.");
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: "> " });
   let deepMode = false;
+  let lastMeta = null;
   rl.prompt();
 
   rl.on("line", async (line) => {
@@ -166,6 +167,30 @@ async function runInteractive(args) {
       return;
     }
 
+    if (text === "/injection") {
+      const injection = lastMeta?.injection;
+      if (!injection) {
+        console.log("no injection data yet; send one message first.");
+      } else {
+        console.log(
+          JSON.stringify(
+            {
+              promptTokensUsed: injection.promptTokensUsed,
+              droppedPacks: injection.droppedPacks,
+              loadedPackIds: injection.loadedPackIds,
+              route: lastMeta.route,
+              modelProvider: lastMeta.modelProvider,
+              model: lastMeta.model,
+            },
+            null,
+            2,
+          ),
+        );
+      }
+      rl.prompt();
+      return;
+    }
+
     try {
       const data = await sendRequest({
         type: "chat",
@@ -173,6 +198,7 @@ async function runInteractive(args) {
         text,
         complexity: deepMode ? "deep" : undefined,
       });
+      lastMeta = data.meta || null;
       console.log(`charli: ${data.response.conclusion}`);
     } catch (err) {
       console.error(`error: ${err.message}`);

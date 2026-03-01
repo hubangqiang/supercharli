@@ -223,6 +223,11 @@ class Kernel {
         learningSignalSource: learning?.event?.signalSource || "none",
         learningSignalConfidence: learning?.event?.signalConfidence || 0,
         learningSignalSummary: learning?.event?.summary || "",
+        injection: {
+          promptTokensUsed: generation.result?.promptMeta?.usedTokens || 0,
+          droppedPacks: generation.result?.promptMeta?.droppedPacks || 0,
+          loadedPackIds: generation.result?.promptMeta?.loadedPackIds || [],
+        },
       },
     };
   }

@@ -246,15 +246,22 @@ function resolveAugmentationMode(provider) {
 }
 
 async function extractModelLearningSignals(router, modelRef, userText, assistantText) {
+  const lang = detectLanguage(userText);
+  const isZh = lang === "zh";
   const prompt = [
-    "You are a learning-signal extractor.",
-    "Given user input and assistant response, extract one reusable learning signal.",
-    "Return JSON only with keys:",
-    "patternKey, outcome(success|failure|neutral), shouldLearn(boolean), summary, strategy, confidence(0-1).",
-    "If no meaningful reusable signal, set shouldLearn=false and patternKey='general-execution-pattern'.",
+    isZh ? "你是学习信号提炼器。" : "You are a learning-signal extractor.",
+    isZh
+      ? "基于用户输入和助手回复，提炼一个可复用学习信号。"
+      : "Given user input and assistant response, extract one reusable learning signal.",
+    isZh
+      ? "只返回JSON，字段为：patternKey, outcome(success|failure|neutral), shouldLearn(boolean), summary, strategy, confidence(0-1)。"
+      : "Return JSON only with keys: patternKey, outcome(success|failure|neutral), shouldLearn(boolean), summary, strategy, confidence(0-1).",
+    isZh
+      ? "summary 和 strategy 使用中文。若无有效信号，shouldLearn=false 且 patternKey='general-execution-pattern'。"
+      : "Use English for summary/strategy. If no meaningful signal, set shouldLearn=false and patternKey='general-execution-pattern'.",
     "",
-    `User: ${String(userText || "").slice(0, 1200)}`,
-    `Assistant: ${String(assistantText || "").slice(0, 1200)}`,
+    `${isZh ? "用户" : "User"}: ${String(userText || "").slice(0, 1200)}`,
+    `${isZh ? "助手" : "Assistant"}: ${String(assistantText || "").slice(0, 1200)}`,
   ].join("\n");
 
   try {
@@ -281,6 +288,10 @@ function parseLearningSignalJson(text) {
   } catch {
     return null;
   }
+}
+
+function detectLanguage(text) {
+  return /[\u4e00-\u9fff]/.test(String(text || "")) ? "zh" : "en";
 }
 
 module.exports = { Kernel };

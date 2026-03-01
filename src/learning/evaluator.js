@@ -9,6 +9,7 @@ class LearningEvaluator {
     const patternKey = modelSignals?.patternKey || classifyPatternKey(text);
     const shouldLearn =
       Boolean(modelSignals?.shouldLearn) ||
+      Boolean(turn.activeLearning) ||
       outcome !== "neutral" ||
       patternKey !== "general-execution-pattern" ||
       turn.severity === "s3" ||

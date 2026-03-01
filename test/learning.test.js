@@ -60,7 +60,7 @@ async function runKernelHookCheck() {
   const focused = await kernel.runTurn({ sessionId: "learning-1", text: "这是具体工作：支付项目上线测试清单" });
   assert.strictEqual(focused.meta.focusMode, true);
   assert.strictEqual(focused.meta.route, "deep");
-  assert.strictEqual(focused.meta.activeLearningRequested, true);
+  assert.strictEqual(focused.meta.activeLearningRequested, false);
 }
 
 async function run() {

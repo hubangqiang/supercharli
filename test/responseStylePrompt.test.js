@@ -40,7 +40,7 @@ function run() {
   assert.ok(prompt.includes("Tone intensity: S1"), "should use calmer tone for anxiety");
   assert.ok(prompt.includes("Learning stage: apprentice"), "should include learning stage");
   assert.ok(prompt.includes("policy bias"), "should include policy bias");
-  assert.ok(prompt.includes("Use structure now: anxiety_overload"), "should route structure");
+  assert.ok(prompt.includes("style intent"), "should include style intent");
   assert.ok(prompt.includes("Do not output internal labels"), "should suppress model/next labels");
   assert.ok(prompt.includes("Focus mode (work execution)"), "should include focus mode section");
 

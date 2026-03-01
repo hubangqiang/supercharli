@@ -138,7 +138,7 @@ class Kernel {
 
     const latencyMs = Date.now() - started;
 
-    const activeLearning = isActiveLearningRequest(input.text) || focusMode;
+    const activeLearning = isActiveLearningRequest(input.text);
     const modelLearningSignals =
       activeLearning && this.router && typeof this.router.generate === "function" && augmentationMode === "external-model-augmented"
         ? await extractModelLearningSignals(this.router, route.model, input.text, generated.content)

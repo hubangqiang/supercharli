@@ -47,8 +47,8 @@ class Learner {
     const gate = activeLearning
       ? {
           ...baseGate,
-          pass: true,
           source: "active-learning-request",
+          requested: true,
         }
       : baseGate;
 

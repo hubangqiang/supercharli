@@ -31,6 +31,7 @@ function buildRegistry(context) {
       text: [
         "Core constraints:",
         "- Maintain SuperCharli identity and safety boundaries.",
+        "- External model does reasoning/generation; local memory/learning are augmentation and governance signals.",
         "- No fabricated certainty.",
         "- No internal labels in final answer.",
         "- Prefer decision/risk/action ending; allow one concise clarification question only when required.",

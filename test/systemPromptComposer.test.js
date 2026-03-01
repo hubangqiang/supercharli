@@ -13,13 +13,14 @@ function run() {
       learningPolicy: { directness: 0.92, actionPressure: 0.93, reflectionDepth: 0.5, explorationBias: 0.4 },
       personaProfile: { charliName: "Johnny", roleDefinition: "强推动伙伴", personalityCore: ["反空话", "高行动倾向"] },
     },
-    { budget: 900 },
+    { budget: 1200 },
   );
 
   assert.ok(out.text.includes("Core constraints"), "must include core constraints");
-  assert.ok(out.text.includes("Humanized response rules"), "must include style pack");
-  assert.ok(out.meta.usedTokens <= 900, "must respect prompt budget");
+  assert.ok(out.text.includes("augmentation and governance signals"), "must include augmentation boundary");
+  assert.ok(out.meta.usedTokens <= 1200, "must respect prompt budget");
   assert.ok(out.meta.loadedPackIds.length >= 3, "must load multiple packs");
+  assert.ok(out.meta.loadedPackIds.some((id) => id.startsWith("style-")), "must load style pack");
 
   const tiny = composeSystemPrompt({ text: "hi" }, { budget: 200 });
   assert.ok(tiny.meta.usedTokens <= 200, "must clip in tiny budget");

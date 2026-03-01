@@ -90,6 +90,7 @@ class Kernel {
       fallbackLevel: generation.fallbackLevel || 0,
       attempts: generation.attempts || [],
     });
+    const augmentationMode = resolveAugmentationMode(generation.result.provider);
 
     const guard = applyPersonaGuard(generation.result.content, severity);
     const generated = guard.ok
@@ -194,6 +195,9 @@ class Kernel {
         selfAuditStatus: selfAudit?.status,
         activeLearningRequested: activeLearning,
         focusMode,
+        augmentationMode,
+        usingExternalModel: augmentationMode === "external-model-augmented",
+        boundaryNote: "local-memory-learning-augment-only",
       },
     };
   }
@@ -226,6 +230,10 @@ function isWorkFocusRequest(text) {
     /\b(pr|merge|review|deploy|release|roadmap|sprint|ticket)\b/,
   ];
   return patterns.some((p) => p.test(s));
+}
+
+function resolveAugmentationMode(provider) {
+  return provider === "mock" || provider === "local" ? "simulation-local" : "external-model-augmented";
 }
 
 module.exports = { Kernel };

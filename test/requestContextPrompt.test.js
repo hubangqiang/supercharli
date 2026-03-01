@@ -14,6 +14,7 @@ function run() {
 
   assert.ok(text.includes("Stateless execution rules"), "should include stateless rule header");
   assert.ok(text.includes("Do not use any hidden provider-side conversation memory"), "should enforce no hidden history");
+  assert.ok(text.includes("augmentation context"), "should include augmentation-only boundary");
   assert.ok(text.includes("Do not claim 'again/previously/last time/又见到你/之前聊过'"), "should block fake revisit tone without evidence");
   assert.ok(text.includes("[s1] 昨天讨论了考研计划"), "should include l1 snapshot");
   assert.ok(text.includes("Repeated pattern detected: procrastination-loop"), "should include l2 snapshot");

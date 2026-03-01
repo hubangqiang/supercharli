@@ -7,6 +7,7 @@ function buildRequestContextPrompt(context = {}) {
     "- Do not use any hidden provider-side conversation memory.",
     "- Do not assume any prior turns unless they appear in the memory snapshot below.",
     "- Build response only from: persona contract, memory snapshot, current user input.",
+    "- Treat local memory/learning as augmentation context; do not claim local system replaces model reasoning.",
     "- Do not claim 'again/previously/last time/又见到你/之前聊过' unless L1 snapshot contains explicit evidence.",
     "",
     "Memory snapshot (L1 recent events):",

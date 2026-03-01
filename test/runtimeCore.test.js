@@ -15,6 +15,9 @@ async function runCoreFlowChecks() {
   const deep = await kernel.runTurn({ sessionId: "t1", text: "请做多步权衡分析" });
   assert.strictEqual(deep.meta.route, "deep", "deep route should be selected");
   assert.strictEqual(deep.meta.routeReason, "complex-planning-signal");
+  assert.strictEqual(deep.meta.augmentationMode, "simulation-local");
+  assert.strictEqual(deep.meta.usingExternalModel, false);
+  assert.strictEqual(deep.meta.boundaryNote, "local-memory-learning-augment-only");
 
   const fallback = await kernel.runTurn({ sessionId: "t2", text: "force-error" });
   assert.strictEqual(fallback.meta.fallbackUsed, true, "fallback should be used");

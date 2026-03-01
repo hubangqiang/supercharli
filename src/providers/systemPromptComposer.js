@@ -5,6 +5,21 @@ const { enforcePromptBudget } = require("./promptBudget");
 const { materializeMemoryPack } = require("./contextMaterializer");
 
 function composeSystemPrompt(context = {}, options = {}) {
+  if (context && context.extractorMode) {
+    return {
+      text: [
+        "Extractor mode:",
+        "- Return strict JSON only.",
+        "- Do not add markdown, explanations, or extra text.",
+      ].join("\n"),
+      meta: {
+        usedTokens: 40,
+        droppedPacks: 0,
+        loadedPackIds: ["extractor-mode"],
+      },
+    };
+  }
+
   const budget = Number(options.budget || 1800);
   const packIds = planPromptPacks(context);
   const registry = buildRegistry(context);

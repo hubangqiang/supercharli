@@ -27,6 +27,24 @@ function runLearnerChecks() {
   const consolidated = learner.runConsolidation(3);
   assert.ok(Array.isArray(consolidated.candidates));
   assert.ok(consolidated.candidates.length <= 3);
+
+  const withModelSignal = learner.observeTurn({
+    text: "请记住：京东注册用例使用三段式",
+    severity: "s2",
+    route: "deep",
+    fallbackUsed: false,
+    activeLearning: true,
+    modelSignals: {
+      patternKey: "京东-测试-用例-三段式",
+      outcome: "success",
+      shouldLearn: true,
+      summary: "京东测试用例采用三段式：步骤、预期、实际。",
+      strategy: "每条用例必须同时填写步骤、预期和实际结果。",
+      confidence: 0.9,
+    },
+  });
+  assert.strictEqual(withModelSignal.event.signalSource, "model-extracted");
+  assert.ok(withModelSignal.event.patternKey.includes("京东"), "should keep unicode pattern key");
 }
 
 async function runKernelHookCheck() {

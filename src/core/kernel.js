@@ -288,6 +288,7 @@ async function extractModelLearningSignals(router, modelRef, userText, assistant
       recalled: [],
       severity: "normal",
       personaProfile: null,
+      extractorMode: true,
     });
     return parseLearningSignalJson(out?.content || "");
   } catch {

@@ -52,7 +52,12 @@ function normalizeModelSignals(input) {
 }
 
 function sanitizePatternKey(v) {
-  const s = String(v || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+  const s = String(v || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}-]/gu, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
   if (!s || s.length < 3) return "";
   return s.slice(0, 64);
 }

@@ -163,6 +163,23 @@ class Kernel {
       });
     }
 
+    if (
+      learning?.event?.signalSource === "model-extracted" &&
+      learning?.event?.shouldLearn &&
+      learning?.event?.patternKey &&
+      learning?.event?.patternKey !== "general-execution-pattern" &&
+      this.memory &&
+      typeof this.memory.upsertL2Pattern === "function"
+    ) {
+      this.memory.upsertL2Pattern({
+        key: learning.event.patternKey,
+        summary: learning.event.summary || `Model extracted pattern: ${learning.event.patternKey}`,
+        strategy: learning.event.strategy || "",
+        confidence: Number(learning.event.signalConfidence || 0.7),
+        source: "model-extracted",
+      });
+    }
+
     const selfAudit =
       this.mind && typeof this.mind.finalizeTurn === "function" ? this.mind.finalizeTurn(learning) : null;
     if (selfAudit) {

@@ -276,6 +276,28 @@ class SQLiteMemoryEngine {
     return true;
   }
 
+  upsertL2Pattern(pattern = {}) {
+    const key = String(pattern.key || "").trim();
+    if (!key) return false;
+
+    const now = pattern.updatedAt || new Date().toISOString();
+    const existing = this.getL2ByKeyStmt.get(key);
+    const summary = String(pattern.summary || existing?.summary || `Repeated pattern detected: ${key}`);
+    const strategy = String(pattern.strategy || existing?.strategy || defaultStrategyForPattern(key));
+    const confidence = Number(
+      Math.min(0.99, Math.max(0.5, Number.isFinite(pattern.confidence) ? Number(pattern.confidence) : Number(existing?.confidence || 0.75))).toFixed(2),
+    );
+    const strength = Math.min(
+      2.5,
+      Math.max(0.6, Number.isFinite(pattern.strength) ? Number(pattern.strength) : Number(existing?.strength || 1.2)),
+    );
+    const source = String(pattern.source || existing?.source || "model-extracted");
+
+    this.insertL2Stmt.run(key, summary, strategy, now, strength, confidence, source);
+    this.refreshL2SignalStmt.run(now, strength, confidence, source, key);
+    return true;
+  }
+
   applyMemoryDecay() {
     this.applyDecayStmt.run(this.decayPerDay);
   }

@@ -91,6 +91,26 @@ class InMemoryMemoryEngine {
     return true;
   }
 
+  upsertL2Pattern(pattern = {}) {
+    const key = String(pattern.key || "").trim();
+    if (!key) return false;
+    const now = pattern.updatedAt || new Date().toISOString();
+    const current = this.l2.get(key);
+    const next = {
+      key,
+      summary: String(pattern.summary || current?.summary || `Repeated pattern detected: ${key}`),
+      strategy: String(pattern.strategy || current?.strategy || defaultStrategyForPattern(key)),
+      updatedAt: now,
+      strength: Number.isFinite(pattern.strength) ? Number(pattern.strength) : Number(current?.strength || 1.2),
+      confidence: Number.isFinite(pattern.confidence) ? Number(pattern.confidence) : Number(current?.confidence || 0.75),
+      recallCount: Number(current?.recallCount || 0),
+      lastRecalledAt: current?.lastRecalledAt || null,
+      source: String(pattern.source || current?.source || "model-extracted"),
+    };
+    this.l2.set(key, next);
+    return true;
+  }
+
   writeL3Milestone(milestone = {}) {
     this.l3.push({
       phase: milestone.phase || "unknown",

@@ -9,6 +9,8 @@
 - `docs/principles/engineering-constitution.zh-CN.md`
 - `docs/principles/model-augmentation-boundary.en.md`
 - `docs/principles/model-augmentation-boundary.zh-CN.md`
+- `docs/principles/development-mode.en.md`
+- `docs/principles/development-mode.zh-CN.md`
 
 ## 2. Plans
 - `docs/plans/scope.md`

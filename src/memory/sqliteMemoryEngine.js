@@ -112,6 +112,8 @@ class SQLiteMemoryEngine {
         version INTEGER NOT NULL DEFAULT 1,
         lifecycle TEXT NOT NULL DEFAULT 'active',
         quality_score REAL NOT NULL DEFAULT 0.5,
+        success_count INTEGER NOT NULL DEFAULT 0,
+        fail_count INTEGER NOT NULL DEFAULT 0,
         confidence REAL NOT NULL DEFAULT 0.7,
         source TEXT NOT NULL DEFAULT 'model-extracted',
         status TEXT NOT NULL DEFAULT 'published',
@@ -333,7 +335,8 @@ class SQLiteMemoryEngine {
     this.findSkillsStmt = this.db.prepare(`
       SELECT skill_id AS skillId, title, applicability, method, boundaries, skill_type AS skillType,
              scenario_tags_json AS scenarioTagsJson, injection_budget AS injectionBudget, version, lifecycle,
-             quality_score AS qualityScore, confidence, source, status, created_at AS createdAt, updated_at AS updatedAt,
+             quality_score AS qualityScore, success_count AS successCount, fail_count AS failCount,
+             confidence, source, status, created_at AS createdAt, updated_at AS updatedAt,
              last_used_at AS lastUsedAt, use_count AS useCount,
              (
                CASE WHEN instr(LOWER(skill_id), LOWER(?)) > 0 THEN 2 ELSE 0 END +
@@ -352,7 +355,8 @@ class SQLiteMemoryEngine {
     this.listSkillsStmt = this.db.prepare(`
       SELECT skill_id AS skillId, title, applicability, method, boundaries, skill_type AS skillType,
              scenario_tags_json AS scenarioTagsJson, injection_budget AS injectionBudget, version, lifecycle,
-             quality_score AS qualityScore, confidence, source, status, created_at AS createdAt, updated_at AS updatedAt,
+             quality_score AS qualityScore, success_count AS successCount, fail_count AS failCount,
+             confidence, source, status, created_at AS createdAt, updated_at AS updatedAt,
              last_used_at AS lastUsedAt, use_count AS useCount
       FROM skill_library
       ORDER BY updated_at DESC
@@ -363,7 +367,18 @@ class SQLiteMemoryEngine {
       UPDATE skill_library
       SET use_count = use_count + 1,
           last_used_at = ?,
-          updated_at = ?
+          updated_at = ?,
+          success_count = success_count + ?,
+          fail_count = fail_count + ?,
+          quality_score = MAX(0, MIN(1, (quality_score * 0.85) + (? * 0.15))),
+          lifecycle = CASE
+            WHEN lifecycle = 'active'
+              AND (fail_count + ?) >= 3
+              AND (use_count + 1) >= 5
+              AND ((quality_score * 0.85) + (? * 0.15)) < 0.42
+            THEN 'shadow'
+            ELSE lifecycle
+          END
       WHERE skill_id = ?
     `);
 
@@ -606,8 +621,20 @@ class SQLiteMemoryEngine {
   recordSkillUsage(usage = {}) {
     const createdAt = usage.createdAt || new Date().toISOString();
     const ids = Array.isArray(usage.skillIds) ? usage.skillIds.map((x) => String(x || "").trim()).filter(Boolean) : [];
+    const passInc = usage.pass === true ? 1 : 0;
+    const failInc = usage.pass === false ? 1 : 0;
+    const responseScore = Number.isFinite(Number(usage.responseScore)) ? Number(usage.responseScore) : 0.5;
     for (const skillId of ids) {
-      this.touchSkillUsageStmt.run(createdAt, createdAt, skillId);
+      this.touchSkillUsageStmt.run(
+        createdAt,
+        createdAt,
+        passInc,
+        failInc,
+        responseScore,
+        failInc,
+        responseScore,
+        skillId,
+      );
     }
     this.insertSkillUsageStmt.run(
       String(usage.sessionId || ""),
@@ -665,6 +692,8 @@ class SQLiteMemoryEngine {
     add("version", "version INTEGER NOT NULL DEFAULT 1");
     add("lifecycle", "lifecycle TEXT NOT NULL DEFAULT 'active'");
     add("quality_score", "quality_score REAL NOT NULL DEFAULT 0.5");
+    add("success_count", "success_count INTEGER NOT NULL DEFAULT 0");
+    add("fail_count", "fail_count INTEGER NOT NULL DEFAULT 0");
   }
 }
 

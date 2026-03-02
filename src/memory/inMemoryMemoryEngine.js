@@ -211,6 +211,8 @@ class InMemoryMemoryEngine {
       version: Math.max(1, Number(skill.version ?? current.version ?? 1)),
       lifecycle: String(skill.lifecycle || current.lifecycle || "active"),
       qualityScore: Number(skill.qualityScore ?? current.qualityScore ?? 0.5),
+      successCount: Number(skill.successCount ?? current.successCount ?? 0),
+      failCount: Number(skill.failCount ?? current.failCount ?? 0),
       confidence: Number(skill.confidence ?? current.confidence ?? 0.7),
       source: String(skill.source || current.source || "model-extracted"),
       status: String(skill.status || current.status || "published"),
@@ -241,6 +243,9 @@ class InMemoryMemoryEngine {
   recordSkillUsage(usage = {}) {
     const ids = Array.isArray(usage.skillIds) ? usage.skillIds : [];
     const createdAt = usage.createdAt || new Date().toISOString();
+    const responseScore = Number.isFinite(Number(usage.responseScore)) ? Number(usage.responseScore) : 0.5;
+    const pass = usage.pass === true;
+    const fail = usage.pass === false;
     for (const id of ids) {
       const skillId = String(id || "").trim();
       if (!skillId) continue;
@@ -248,6 +253,12 @@ class InMemoryMemoryEngine {
       if (!row) continue;
       row.useCount = Number(row.useCount || 0) + 1;
       row.lastUsedAt = createdAt;
+      row.successCount = Number(row.successCount || 0) + (pass ? 1 : 0);
+      row.failCount = Number(row.failCount || 0) + (fail ? 1 : 0);
+      row.qualityScore = Math.max(0, Math.min(1, (Number(row.qualityScore || 0.5) * 0.85) + (responseScore * 0.15)));
+      if (row.lifecycle === "active" && row.useCount >= 5 && row.failCount >= 3 && row.qualityScore < 0.42) {
+        row.lifecycle = "shadow";
+      }
       this.skillLibrary.set(skillId, row);
     }
     this.skillHistory.push({

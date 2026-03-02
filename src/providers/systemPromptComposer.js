@@ -102,6 +102,13 @@ function buildRegistry(context) {
       maxTokens: 420,
       text: materializeSkillPack(context.skills),
     },
+    "quality-repair-pack": {
+      id: "quality-repair-pack",
+      priority: 4,
+      required: false,
+      maxTokens: 180,
+      text: materializeQualityRepairPack(context.qualityFeedback),
+    },
     "risk-pack": {
       id: "risk-pack",
       priority: 5,
@@ -134,6 +141,12 @@ function materializeSkillPack(skills) {
   }
   lines.push("- Use only relevant parts of these skills; do not copy as rigid template.");
   return lines.join("\n");
+}
+
+function materializeQualityRepairPack(feedback) {
+  const text = String(feedback || "").trim();
+  if (!text) return "";
+  return ["Quality repair pack:", text].join("\n");
 }
 
 module.exports = { composeSystemPrompt };

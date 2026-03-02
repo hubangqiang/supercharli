@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { applyPersonaGuard, normalizeResponse } = require("./policies");
+const { evaluateResponseQuality, buildQualityRepairFeedback } = require("./responseQuality");
 const { SeverityStateMachine } = require("./severityStateMachine");
 const { Telemetry } = require("../observability/telemetry");
 
@@ -82,7 +83,7 @@ class Kernel {
     const learningSnapshot =
       this.learner && typeof this.learner.snapshot === "function" ? this.learner.snapshot() : null;
 
-    const generation = await this.router.generateWithFallback(route.model, {
+    const baseGenContext = {
       text: input.text,
       l1,
       recalled,
@@ -97,7 +98,8 @@ class Kernel {
       l3,
       l4,
       focusMode,
-    });
+    };
+    const generation = await this.router.generateWithFallback(route.model, baseGenContext);
     this.telemetry.log({
       stage: "generate",
       traceId,
@@ -131,8 +133,45 @@ class Kernel {
       this.telemetry.log({ stage: "guard", traceId, ok: true });
     }
 
-    const response = normalizeResponse(generated, severity);
-    this.telemetry.log({ stage: "normalize", traceId, responseMode: generated.responseMode || "normal" });
+    let finalGenerated = generated;
+    let response = normalizeResponse(finalGenerated, severity);
+    let quality = evaluateResponseQuality({
+      responseText: response.conclusion,
+      focusMode,
+      inputText: input.text,
+    });
+    let qualityRetryUsed = false;
+
+    if (
+      !quality.pass &&
+      augmentationMode === "external-model-augmented" &&
+      this.router &&
+      typeof this.router.generate === "function"
+    ) {
+      const repaired = await this.tryQualityRepair({
+        routeModel: route.model,
+        baseGenContext,
+        quality,
+        focusMode,
+        inputText: input.text,
+        severity,
+      });
+      if (repaired) {
+        finalGenerated = repaired.generated;
+        response = repaired.response;
+        quality = repaired.quality;
+        qualityRetryUsed = repaired.retryUsed;
+      }
+    }
+    this.telemetry.log({
+      stage: "normalize",
+      traceId,
+      responseMode: finalGenerated.responseMode || "normal",
+      qualityScore: quality.score,
+      qualityPass: quality.pass,
+      qualityIssues: quality.issues,
+      qualityRetryUsed,
+    });
 
     const entry = {
       text: input.text,
@@ -158,7 +197,7 @@ class Kernel {
     const activeLearning = isActiveLearningRequest(input.text);
     const modelLearningSignals =
       activeLearning && this.router && typeof this.router.generate === "function" && augmentationMode === "external-model-augmented"
-        ? await extractModelLearningSignals(this.router, route.model, input.text, generated.content)
+        ? await extractModelLearningSignals(this.router, route.model, input.text, finalGenerated.content)
         : null;
     let learning = null;
     if (this.learner && typeof this.learner.observeTurn === "function") {
@@ -203,7 +242,7 @@ class Kernel {
       typeof this.memory.upsertSkill === "function" &&
       shouldExtractSkillAsset(input.text, learning, focusMode)
     ) {
-      const extractedSkill = await extractModelSkillAsset(this.router, route.model, input.text, generated.content);
+      const extractedSkill = await extractModelSkillAsset(this.router, route.model, input.text, finalGenerated.content);
       if (extractedSkill?.shouldStore && extractedSkill.skillId) {
         this.memory.upsertSkill({
           skillId: extractedSkill.skillId,
@@ -257,6 +296,8 @@ class Kernel {
         modelName: generation.result.model,
         skillIds: selectedSkills.skills.map((x) => x.skillId || x.id).filter(Boolean),
         reason: "inference-time-injection",
+        responseScore: quality.score,
+        pass: quality.pass,
       });
     }
 
@@ -269,12 +310,16 @@ class Kernel {
         model: generation.result.model,
         fallbackUsed: Boolean(generation.fallbackUsed),
         fallbackLevel: generation.fallbackLevel || 0,
-        responseMode: generated.responseMode || "normal",
+        responseMode: finalGenerated.responseMode || "normal",
+        qualityScore: quality.score,
+        qualityPass: quality.pass,
+        qualityIssues: quality.issues,
+        qualityRetryUsed,
         severity,
         severityReason: severityInfo.reason,
         promotedToL2,
         traceId,
-        regenerated: Boolean(generated.regenerated),
+        regenerated: Boolean(finalGenerated.regenerated),
         latencyMs,
         learningStage: learning?.stage?.stage,
         policySnapshot: learning?.policy?.policy,
@@ -301,6 +346,47 @@ class Kernel {
         },
       },
     };
+  }
+
+  async tryQualityRepair(input = {}) {
+    const repairHint = buildQualityRepairFeedback(input.quality, { focusMode: input.focusMode });
+    try {
+      const retried = await this.router.generate(input.routeModel, {
+        ...input.baseGenContext,
+        qualityFeedback: repairHint,
+      });
+      const guard = applyPersonaGuard(retried.content, input.severity);
+      const safe = guard.ok
+        ? retried
+        : await this.router.regenerateSafe(
+            retried,
+            {
+              text: input.inputText,
+              l1: input.baseGenContext.l1,
+              recalled: input.baseGenContext.recalled,
+              severity: input.severity,
+              personaProfile: input.baseGenContext.personaProfile,
+            },
+            guard.reason,
+          );
+      const response = normalizeResponse(safe, input.severity);
+      const quality = evaluateResponseQuality({
+        responseText: response.conclusion,
+        focusMode: input.focusMode,
+        inputText: input.inputText,
+      });
+      if (quality.score <= Number(input.quality?.score || 0)) {
+        return null;
+      }
+      return {
+        generated: { ...safe, responseMode: "quality-repair" },
+        response,
+        quality,
+        retryUsed: true,
+      };
+    } catch {
+      return null;
+    }
   }
 }
 

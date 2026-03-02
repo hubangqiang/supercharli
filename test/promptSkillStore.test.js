@@ -64,9 +64,16 @@ function run() {
     modelProvider: "anthropicrelay",
     modelName: "claude-sonnet-4",
     skillIds: ["testcase-3part"],
+    pass: true,
+    responseScore: 0.86,
   });
   const skillHistory = engine.listSkillHistory(10);
   assert.ok(skillHistory.length >= 1, "skill usage history should be persisted");
+  const skills = engine.listSkills(10);
+  const testcase = skills.find((x) => x.skillId === "testcase-3part");
+  assert.ok(testcase, "stored skill should exist");
+  assert.ok(Number(testcase.useCount || 0) >= 1, "skill use count should increase");
+  assert.ok(Number(testcase.qualityScore || 0) > 0.5, "quality score should be updated from usage outcome");
 
   engine.close();
   fs.rmSync(root, { recursive: true, force: true });

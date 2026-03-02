@@ -71,6 +71,8 @@ function run() {
   const skillHistory = engine.listSkillHistory(10);
   assert.ok(skillHistory.length >= 1, "skill usage history should be persisted");
   const skills = engine.listSkills(10);
+  assert.ok(skills.some((x) => x.skillId === "skill-extractor"), "system meta skill skill-extractor should be managed");
+  assert.ok(skills.some((x) => x.skillId === "skill-router"), "system meta skill skill-router should be managed");
   const testcase = skills.find((x) => x.skillId === "testcase-3part");
   assert.ok(testcase, "stored skill should exist");
   assert.ok(Number(testcase.useCount || 0) >= 1, "skill use count should increase");

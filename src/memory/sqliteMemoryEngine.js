@@ -446,6 +446,8 @@ class SQLiteMemoryEngine {
       ORDER BY id DESC
       LIMIT ?
     `);
+
+    this._ensureSystemMetaSkills();
   }
 
   readL1(sessionId) {
@@ -787,6 +789,23 @@ class SQLiteMemoryEngine {
     add("success_count", "success_count INTEGER NOT NULL DEFAULT 0");
     add("fail_count", "fail_count INTEGER NOT NULL DEFAULT 0");
   }
+
+  _ensureSystemMetaSkills() {
+    const now = new Date().toISOString();
+    for (const seed of getSystemMetaSkillSeeds()) {
+      this.upsertSkill({
+        ...seed,
+        source: "system-default",
+        status: "published",
+        lifecycle: "active",
+        version: 1,
+        confidence: 0.95,
+        qualityScore: 0.9,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
 }
 
 function sha256(text) {
@@ -831,6 +850,31 @@ function resolveLifecycle(input = {}) {
     return "candidate";
   }
   return "candidate";
+}
+
+function getSystemMetaSkillSeeds() {
+  return [
+    {
+      skillId: "skill-extractor",
+      title: "技能提炼器",
+      skillType: "meta",
+      applicability: "当用户在对话中教授方法、规范、步骤、判定标准时，提炼为可复用技能。",
+      method: "识别教学信号；抽取目标/触发条件/执行方法/边界；生成候选并等待后续证据强化。",
+      boundaries: "不暴露内部提炼过程；不替代模型推理；不得编造用户未表达的规则。",
+      scenarioTags: ["learning", "method-extraction", "governance"],
+      injectionBudget: 180,
+    },
+    {
+      skillId: "skill-router",
+      title: "技能路由器",
+      skillType: "meta",
+      applicability: "每轮推理前后根据任务意图选择加载/卸载技能并控制注入预算。",
+      method: "结合意图、场景标签与相关度分数选择技能；优先核心与高相关技能；按预算裁剪。",
+      boundaries: "不对用户显式暴露路由细节；不固定输出格式；避免过量注入导致上下文污染。",
+      scenarioTags: ["routing", "injection", "budget-control"],
+      injectionBudget: 180,
+    },
+  ];
 }
 
 module.exports = { SQLiteMemoryEngine };

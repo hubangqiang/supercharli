@@ -32,6 +32,10 @@
 - `docs/plans/readiness-report.v1.md`
 - `docs/plans/learning-objective-gates.en.md`
 - `docs/plans/learning-objective-gates.zh-CN.md`
+- `docs/plans/skill-module-spec.v1.en.md`
+- `docs/plans/skill-module-spec.v1.zh-CN.md`
+- `docs/plans/skill-module-gap-analysis.v1.en.md`
+- `docs/plans/skill-module-gap-analysis.v1.zh-CN.md`
 
 ## 3. Guides
 - `docs/guide/user-manual.en.md`

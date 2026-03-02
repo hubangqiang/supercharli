@@ -36,6 +36,10 @@
 - `docs/plans/readiness-report.v1.md`
 - `docs/plans/learning-objective-gates.zh-CN.md`
 - `docs/plans/learning-objective-gates.en.md`
+- `docs/plans/skill-module-spec.v1.zh-CN.md`
+- `docs/plans/skill-module-spec.v1.en.md`
+- `docs/plans/skill-module-gap-analysis.v1.zh-CN.md`
+- `docs/plans/skill-module-gap-analysis.v1.en.md`
 
 ## 3. 说明层（Guide）
 - `docs/guide/user-manual.zh-CN.md`

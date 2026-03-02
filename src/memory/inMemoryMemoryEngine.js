@@ -205,6 +205,12 @@ class InMemoryMemoryEngine {
       applicability: String(skill.applicability || current.applicability || ""),
       method: String(skill.method || current.method || ""),
       boundaries: String(skill.boundaries || current.boundaries || ""),
+      skillType: String(skill.skillType || current.skillType || "domain"),
+      scenarioTags: normalizeSkillTags(skill.scenarioTags || skill.tags || current.scenarioTags || []),
+      injectionBudget: Math.max(60, Math.min(480, Number(skill.injectionBudget ?? current.injectionBudget ?? 180))),
+      version: Math.max(1, Number(skill.version ?? current.version ?? 1)),
+      lifecycle: String(skill.lifecycle || current.lifecycle || "active"),
+      qualityScore: Number(skill.qualityScore ?? current.qualityScore ?? 0.5),
       confidence: Number(skill.confidence ?? current.confidence ?? 0.7),
       source: String(skill.source || current.source || "model-extracted"),
       status: String(skill.status || current.status || "published"),
@@ -218,13 +224,14 @@ class InMemoryMemoryEngine {
 
   recallSkills(text, limit = 3) {
     const q = String(text || "").toLowerCase();
-    const rows = Array.from(this.skillLibrary.values()).filter((x) => x.status === "published");
+    const rows = Array.from(this.skillLibrary.values()).filter((x) => x.status === "published" && x.lifecycle === "active");
     const scored = rows
       .map((x) => {
-        const blob = `${x.skillId} ${x.title} ${x.applicability} ${x.method}`.toLowerCase();
+        const tagBlob = Array.isArray(x.scenarioTags) ? x.scenarioTags.join(" ") : "";
+        const blob = `${x.skillId} ${x.title} ${x.applicability} ${x.method} ${tagBlob}`.toLowerCase();
         const hit = q && blob.includes(q) ? 1 : 0;
         const overlap = tokenOverlap(blob, q);
-        const score = overlap * 1.4 + hit + Number(x.confidence || 0) * 0.3;
+        const score = overlap * 1.4 + hit + Number(x.confidence || 0) * 0.3 + Number(x.qualityScore || 0) * 0.6;
         return { ...x, _score: score };
       })
       .sort((a, b) => b._score - a._score || String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
@@ -291,6 +298,18 @@ function tokenOverlap(blob, query) {
     if (blob.includes(token)) hit += 1;
   }
   return hit / q.size;
+}
+
+function normalizeSkillTags(input) {
+  if (Array.isArray(input)) {
+    return input.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 12);
+  }
+  if (!input) return [];
+  return String(input)
+    .split(/[,，]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 12);
 }
 
 function clampRecallLimit(limit) {

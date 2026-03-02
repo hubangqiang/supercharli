@@ -26,8 +26,6 @@ class Kernel {
 
     const l1 = this.memory.readL1(input.sessionId);
     const recalled = this.memory.recallL2(input.text);
-    const recalledSkills =
-      this.memory && typeof this.memory.recallSkills === "function" ? this.memory.recallSkills(input.text, 3) : [];
     const l3 = typeof this.memory.readL3Milestones === "function" ? this.memory.readL3Milestones(1) : [];
     const l4 = typeof this.memory.readL4Identity === "function" ? this.memory.readL4Identity() : {};
     this.telemetry.log({
@@ -48,7 +46,6 @@ class Kernel {
             riskSignals: input.riskSignals,
             l1,
             recalled,
-            skills: recalledSkills,
             l3,
             l4,
             focusMode,
@@ -66,6 +63,22 @@ class Kernel {
       reason: route.reason,
     });
 
+    const selectedSkills = await selectSkillsForTurn({
+      memory: this.memory,
+      router: this.router,
+      modelRef: route.model,
+      userText: input.text,
+      maxSelected: 2,
+    });
+    this.telemetry.log({
+      stage: "skill-route",
+      traceId,
+      mode: selectedSkills.mode,
+      candidateCount: selectedSkills.candidateCount,
+      selectedCount: selectedSkills.skills.length,
+      reason: selectedSkills.reason || "",
+    });
+
     const learningSnapshot =
       this.learner && typeof this.learner.snapshot === "function" ? this.learner.snapshot() : null;
 
@@ -80,7 +93,7 @@ class Kernel {
       metacognitiveConfidence: mindCtx?.metacognition?.confidence,
       thinkingMode: mindCtx?.thinking?.mode,
       workspace: mindCtx?.workspace?.blocks,
-      skills: recalledSkills,
+      skills: selectedSkills.skills,
       l3,
       l4,
       focusMode,
@@ -234,7 +247,7 @@ class Kernel {
         skills: loadedPacks,
       });
     }
-    if (this.memory && typeof this.memory.recordSkillUsage === "function" && recalledSkills.length) {
+    if (this.memory && typeof this.memory.recordSkillUsage === "function" && selectedSkills.skills.length) {
       this.memory.recordSkillUsage({
         createdAt: new Date().toISOString(),
         sessionId: input.sessionId,
@@ -242,7 +255,7 @@ class Kernel {
         route: route.route,
         modelProvider: generation.result.provider,
         modelName: generation.result.model,
-        skillIds: recalledSkills.map((x) => x.skillId || x.id).filter(Boolean),
+        skillIds: selectedSkills.skills.map((x) => x.skillId || x.id).filter(Boolean),
         reason: "inference-time-injection",
       });
     }
@@ -282,7 +295,9 @@ class Kernel {
           droppedPacks: generation.result?.promptMeta?.droppedPacks || 0,
           loadedPackIds: generation.result?.promptMeta?.loadedPackIds || [],
           loadedSkillCount: loadedPacks.length,
-          appliedSkillIds: recalledSkills.map((x) => x.skillId || x.id).filter(Boolean),
+          appliedSkillIds: selectedSkills.skills.map((x) => x.skillId || x.id).filter(Boolean),
+          skillRouteMode: selectedSkills.mode,
+          skillRouteReason: selectedSkills.reason || "",
         },
       },
     };
@@ -375,7 +390,7 @@ async function extractModelSkillAsset(router, modelRef, userText, assistantText)
       : "Given user input and assistant response, extract one reusable skill asset (method, not fixed answer).",
     isZh
       ? "只返回JSON，字段：skillId,title,applicability,method,boundaries,confidence(0-1),shouldStore(boolean)。"
-      : "Return JSON only with keys: skillId,title,applicability,method,boundaries,confidence(0-1),shouldStore(boolean).",
+      : "Return JSON only with keys: skillId,title,applicability,method,boundaries,skillType(foundation|domain|meta),scenarioTags(array),injectionBudget(60-480),qualityScore(0-1),confidence(0-1),shouldStore(boolean).",
     isZh
       ? "skillId 用短横线命名。若无可复用技能，shouldStore=false。"
       : "Use kebab-case for skillId. If nothing reusable, set shouldStore=false.",
@@ -396,6 +411,62 @@ async function extractModelSkillAsset(router, modelRef, userText, assistantText)
     return parseSkillAssetJson(out?.content || "");
   } catch {
     return null;
+  }
+}
+
+async function selectSkillsForTurn({ memory, router, modelRef, userText, maxSelected = 2 }) {
+  const fallback = () => {
+    const direct = memory && typeof memory.recallSkills === "function" ? memory.recallSkills(userText, maxSelected) : [];
+    return {
+      skills: direct,
+      mode: "local-fallback",
+      candidateCount: direct.length,
+      reason: "keyword-recall",
+    };
+  };
+  if (!memory || typeof memory.listSkills !== "function") return fallback();
+
+  const candidates = memory.listSkills(12).filter((x) => x.status === "published" && String(x.lifecycle || "active") === "active");
+  if (!candidates.length) return { skills: [], mode: "none", candidateCount: 0, reason: "empty-library" };
+  if (!isExternalModelRef(modelRef)) return fallback();
+  if (!router || typeof router.generate !== "function") return fallback();
+
+  const prompt = [
+    "You are a meta-skill router.",
+    "Select up to 2 most relevant skills for current user intent.",
+    "Return strict JSON only: { selectedSkillIds: string[], reason: string }.",
+    "Prefer high precision and low token overhead.",
+    "",
+    `User: ${String(userText || "").slice(0, 1200)}`,
+    "Candidates:",
+    ...candidates.map((c) => {
+      const tags = Array.isArray(c.scenarioTags) ? c.scenarioTags.join(",") : "";
+      return `- ${c.skillId} | ${c.title} | ${c.skillType || "domain"} | tags=${tags} | quality=${Number(c.qualityScore || 0).toFixed(2)} | confidence=${Number(c.confidence || 0).toFixed(2)}`;
+    }),
+  ].join("\n");
+
+  try {
+    const out = await router.generate(modelRef, {
+      text: prompt,
+      l1: [],
+      recalled: [],
+      severity: "normal",
+      personaProfile: null,
+      extractorMode: true,
+    });
+    const parsed = parseMetaSkillRouteJson(out?.content || "");
+    if (!parsed) return fallback();
+    const selectedIds = new Set(parsed.selectedSkillIds.slice(0, Math.max(1, maxSelected)).map((x) => String(x || "").trim()).filter(Boolean));
+    const selected = candidates.filter((x) => selectedIds.has(String(x.skillId || "")));
+    if (!selected.length) return fallback();
+    return {
+      skills: selected.slice(0, Math.max(1, maxSelected)),
+      mode: "model-meta-router",
+      candidateCount: candidates.length,
+      reason: parsed.reason || "",
+    };
+  } catch {
+    return fallback();
   }
 }
 
@@ -429,6 +500,10 @@ function parseSkillAssetJson(text) {
       applicability: String(parsed.applicability || "").trim(),
       method: String(parsed.method || "").trim(),
       boundaries: String(parsed.boundaries || "").trim(),
+      skillType: normalizeSkillType(parsed.skillType),
+      scenarioTags: normalizeTags(parsed.scenarioTags),
+      injectionBudget: normalizeInjectionBudget(parsed.injectionBudget),
+      qualityScore: clamp01(Number(parsed.qualityScore || 0.5)),
       confidence: clamp01(Number(parsed.confidence || 0)),
       shouldStore: Boolean(parsed.shouldStore),
     };
@@ -446,6 +521,48 @@ function sanitizeSkillId(v) {
     .replace(/^-+|-+$/g, "");
   if (!s || s.length < 3) return "";
   return s.slice(0, 64);
+}
+
+function parseMetaSkillRouteJson(text) {
+  const raw = String(text || "");
+  const block = raw.match(/\{[\s\S]*\}/);
+  if (!block) return null;
+  try {
+    const parsed = JSON.parse(block[0]);
+    return {
+      selectedSkillIds: Array.isArray(parsed.selectedSkillIds) ? parsed.selectedSkillIds : [],
+      reason: String(parsed.reason || "").trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isExternalModelRef(modelRef) {
+  const provider = String(modelRef?.provider || "").toLowerCase();
+  return provider && provider !== "mock" && provider !== "local";
+}
+
+function normalizeSkillType(v) {
+  const t = String(v || "domain").toLowerCase();
+  if (t === "foundation" || t === "domain" || t === "meta") return t;
+  return "domain";
+}
+
+function normalizeTags(v) {
+  if (Array.isArray(v)) return v.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 12);
+  if (!v) return [];
+  return String(v)
+    .split(/[,，]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function normalizeInjectionBudget(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 180;
+  return Math.max(60, Math.min(480, Math.round(n)));
 }
 
 function clamp01(v) {

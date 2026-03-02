@@ -106,6 +106,12 @@ class SQLiteMemoryEngine {
         applicability TEXT NOT NULL,
         method TEXT NOT NULL,
         boundaries TEXT NOT NULL,
+        skill_type TEXT NOT NULL DEFAULT 'domain',
+        scenario_tags_json TEXT NOT NULL DEFAULT '[]',
+        injection_budget INTEGER NOT NULL DEFAULT 180,
+        version INTEGER NOT NULL DEFAULT 1,
+        lifecycle TEXT NOT NULL DEFAULT 'active',
+        quality_score REAL NOT NULL DEFAULT 0.5,
         confidence REAL NOT NULL DEFAULT 0.7,
         source TEXT NOT NULL DEFAULT 'model-extracted',
         status TEXT NOT NULL DEFAULT 'published',
@@ -128,6 +134,7 @@ class SQLiteMemoryEngine {
       );
     `);
     this._ensureL2Columns();
+    this._ensureSkillColumns();
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_l2_updated_at ON l2_patterns(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_l2_strength ON l2_patterns(strength DESC, updated_at DESC);
@@ -303,13 +310,20 @@ class SQLiteMemoryEngine {
 
     this.upsertSkillStmt = this.db.prepare(`
       INSERT INTO skill_library
-      (skill_id, title, applicability, method, boundaries, confidence, source, status, created_at, updated_at, last_used_at, use_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
+      (skill_id, title, applicability, method, boundaries, skill_type, scenario_tags_json, injection_budget, version, lifecycle,
+       quality_score, confidence, source, status, created_at, updated_at, last_used_at, use_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
       ON CONFLICT(skill_id) DO UPDATE SET
         title = excluded.title,
         applicability = excluded.applicability,
         method = excluded.method,
         boundaries = excluded.boundaries,
+        skill_type = excluded.skill_type,
+        scenario_tags_json = excluded.scenario_tags_json,
+        injection_budget = excluded.injection_budget,
+        version = excluded.version,
+        lifecycle = excluded.lifecycle,
+        quality_score = excluded.quality_score,
         confidence = excluded.confidence,
         source = excluded.source,
         status = excluded.status,
@@ -317,24 +331,29 @@ class SQLiteMemoryEngine {
     `);
 
     this.findSkillsStmt = this.db.prepare(`
-      SELECT skill_id AS skillId, title, applicability, method, boundaries, confidence, source, status,
-             created_at AS createdAt, updated_at AS updatedAt, last_used_at AS lastUsedAt, use_count AS useCount,
+      SELECT skill_id AS skillId, title, applicability, method, boundaries, skill_type AS skillType,
+             scenario_tags_json AS scenarioTagsJson, injection_budget AS injectionBudget, version, lifecycle,
+             quality_score AS qualityScore, confidence, source, status, created_at AS createdAt, updated_at AS updatedAt,
+             last_used_at AS lastUsedAt, use_count AS useCount,
              (
                CASE WHEN instr(LOWER(skill_id), LOWER(?)) > 0 THEN 2 ELSE 0 END +
                CASE WHEN instr(LOWER(title), LOWER(?)) > 0 THEN 2 ELSE 0 END +
                CASE WHEN instr(LOWER(applicability), LOWER(?)) > 0 THEN 1 ELSE 0 END +
                CASE WHEN instr(LOWER(method), LOWER(?)) > 0 THEN 1 ELSE 0 END +
-               confidence
+               confidence +
+               quality_score * 0.6
              ) AS score
       FROM skill_library
-      WHERE status = 'published'
+      WHERE status = 'published' AND lifecycle = 'active'
       ORDER BY score DESC, updated_at DESC
       LIMIT ?
     `);
 
     this.listSkillsStmt = this.db.prepare(`
-      SELECT skill_id AS skillId, title, applicability, method, boundaries, confidence, source, status,
-             created_at AS createdAt, updated_at AS updatedAt, last_used_at AS lastUsedAt, use_count AS useCount
+      SELECT skill_id AS skillId, title, applicability, method, boundaries, skill_type AS skillType,
+             scenario_tags_json AS scenarioTagsJson, injection_budget AS injectionBudget, version, lifecycle,
+             quality_score AS qualityScore, confidence, source, status, created_at AS createdAt, updated_at AS updatedAt,
+             last_used_at AS lastUsedAt, use_count AS useCount
       FROM skill_library
       ORDER BY updated_at DESC
       LIMIT ?
@@ -551,12 +570,19 @@ class SQLiteMemoryEngine {
     const skillId = String(skill.skillId || skill.id || "").trim();
     if (!skillId) return false;
     const now = skill.updatedAt || new Date().toISOString();
+    const tags = normalizeSkillTags(skill.scenarioTags || skill.tags);
     this.upsertSkillStmt.run(
       skillId,
       String(skill.title || ""),
       String(skill.applicability || ""),
       String(skill.method || ""),
       String(skill.boundaries || ""),
+      String(skill.skillType || "domain"),
+      JSON.stringify(tags),
+      Math.max(60, Math.min(480, Number(skill.injectionBudget || 180))),
+      Math.max(1, Number(skill.version || 1)),
+      String(skill.lifecycle || "active"),
+      Number.isFinite(Number(skill.qualityScore)) ? Number(skill.qualityScore) : 0.5,
       Number.isFinite(Number(skill.confidence)) ? Number(skill.confidence) : 0.7,
       String(skill.source || "model-extracted"),
       String(skill.status || "published"),
@@ -568,8 +594,13 @@ class SQLiteMemoryEngine {
 
   recallSkills(text, limit = 3) {
     const q = String(text || "").trim();
-    if (!q) return this.listSkills(Math.max(1, Number(limit) || 3)).slice(0, Math.max(1, Number(limit) || 3));
-    return this.findSkillsStmt.all(q, q, q, q, Math.max(1, Number(limit) || 3));
+    const out = !q
+      ? this.listSkills(Math.max(1, Number(limit) || 3)).slice(0, Math.max(1, Number(limit) || 3))
+      : this.findSkillsStmt.all(q, q, q, q, Math.max(1, Number(limit) || 3));
+    return out.map((row) => ({
+      ...row,
+      scenarioTags: parseJson(row.scenarioTagsJson, []),
+    }));
   }
 
   recordSkillUsage(usage = {}) {
@@ -592,7 +623,10 @@ class SQLiteMemoryEngine {
   }
 
   listSkills(limit = 50) {
-    return this.listSkillsStmt.all(Math.max(1, Number(limit) || 50));
+    return this.listSkillsStmt.all(Math.max(1, Number(limit) || 50)).map((row) => ({
+      ...row,
+      scenarioTags: parseJson(row.scenarioTagsJson, []),
+    }));
   }
 
   listSkillHistory(limit = 60) {
@@ -618,6 +652,20 @@ class SQLiteMemoryEngine {
     add("last_recalled_at", "last_recalled_at TEXT");
     add("source", "source TEXT NOT NULL DEFAULT 'promotion-score'");
   }
+
+  _ensureSkillColumns() {
+    const columns = new Set(this.db.prepare("PRAGMA table_info(skill_library)").all().map((c) => c.name));
+    const add = (name, sql) => {
+      if (!columns.has(name)) this.db.exec(`ALTER TABLE skill_library ADD COLUMN ${sql}`);
+    };
+
+    add("skill_type", "skill_type TEXT NOT NULL DEFAULT 'domain'");
+    add("scenario_tags_json", "scenario_tags_json TEXT NOT NULL DEFAULT '[]'");
+    add("injection_budget", "injection_budget INTEGER NOT NULL DEFAULT 180");
+    add("version", "version INTEGER NOT NULL DEFAULT 1");
+    add("lifecycle", "lifecycle TEXT NOT NULL DEFAULT 'active'");
+    add("quality_score", "quality_score REAL NOT NULL DEFAULT 0.5");
+  }
 }
 
 function sha256(text) {
@@ -634,6 +682,18 @@ function parseJson(s, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function normalizeSkillTags(input) {
+  if (Array.isArray(input)) {
+    return input.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 12);
+  }
+  if (!input) return [];
+  return String(input)
+    .split(/[,，]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 12);
 }
 
 module.exports = { SQLiteMemoryEngine };

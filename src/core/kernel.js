@@ -250,9 +250,14 @@ class Kernel {
           applicability: extractedSkill.applicability,
           method: extractedSkill.method,
           boundaries: extractedSkill.boundaries,
+          skillType: extractedSkill.skillType || "domain",
+          scenarioTags: extractedSkill.scenarioTags || [],
+          injectionBudget: extractedSkill.injectionBudget || 180,
+          qualityScore: extractedSkill.qualityScore || 0.5,
           confidence: extractedSkill.confidence,
           source: "model-extracted",
           status: "published",
+          lifecycle: "candidate",
         });
       }
     }
@@ -504,9 +509,9 @@ async function selectSkillsForTurn({ memory, router, modelRef, userText, maxSele
   const fallback = () => {
     const direct = memory && typeof memory.recallSkills === "function" ? memory.recallSkills(userText, maxSelected) : [];
     return {
-      skills: direct,
+      skills: (Array.isArray(direct) ? direct : []).filter((x) => Number(x.relevanceScore || 0) >= 0.35),
       mode: "local-fallback",
-      candidateCount: direct.length,
+      candidateCount: (Array.isArray(direct) ? direct.length : 0),
       reason: "keyword-recall",
     };
   };

@@ -55,6 +55,7 @@ function buildRegistry(context) {
         "Core constraints:",
         "- Maintain SuperCharli identity and safety boundaries.",
         "- External model does reasoning/generation; local memory/learning are augmentation and governance signals.",
+        "- Internal meta-skills are always active: detect teachable methods and route/load/unload skills on demand.",
         "- No fabricated certainty.",
         "- No internal labels in final answer.",
         "- Do not mention skill lifecycle, meta-router, prompt packs, or governance internals to user.",

@@ -54,6 +54,7 @@ function run() {
     method: "步骤+预期+实际",
     boundaries: "不写具体产品结论",
     confidence: 0.88,
+    lifecycle: "active",
   });
   const recalledSkills = engine.recallSkills("我想继续写测试用例", 3);
   assert.ok(recalledSkills.some((x) => x.skillId === "testcase-3part"), "should recall published skills by query");

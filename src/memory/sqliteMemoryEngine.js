@@ -112,6 +112,7 @@ class SQLiteMemoryEngine {
         version INTEGER NOT NULL DEFAULT 1,
         lifecycle TEXT NOT NULL DEFAULT 'active',
         quality_score REAL NOT NULL DEFAULT 0.5,
+        evidence_count INTEGER NOT NULL DEFAULT 0,
         success_count INTEGER NOT NULL DEFAULT 0,
         fail_count INTEGER NOT NULL DEFAULT 0,
         confidence REAL NOT NULL DEFAULT 0.7,
@@ -121,6 +122,15 @@ class SQLiteMemoryEngine {
         updated_at TEXT NOT NULL,
         last_used_at TEXT,
         use_count INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS skill_lifecycle_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        skill_id TEXT NOT NULL,
+        from_state TEXT NOT NULL,
+        to_state TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS skill_usage_history (
@@ -148,6 +158,8 @@ class SQLiteMemoryEngine {
       CREATE INDEX IF NOT EXISTS idx_skill_library_status_updated ON skill_library(status, updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_skill_usage_created ON skill_usage_history(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_skill_usage_session ON skill_usage_history(session_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_skill_lifecycle_history_created ON skill_lifecycle_history(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_skill_lifecycle_history_skill ON skill_lifecycle_history(skill_id, created_at DESC);
     `);
 
     this.readL1Stmt = this.db.prepare(`
@@ -313,8 +325,8 @@ class SQLiteMemoryEngine {
     this.upsertSkillStmt = this.db.prepare(`
       INSERT INTO skill_library
       (skill_id, title, applicability, method, boundaries, skill_type, scenario_tags_json, injection_budget, version, lifecycle,
-       quality_score, confidence, source, status, created_at, updated_at, last_used_at, use_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
+       quality_score, evidence_count, confidence, source, status, created_at, updated_at, last_used_at, use_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
       ON CONFLICT(skill_id) DO UPDATE SET
         title = excluded.title,
         applicability = excluded.applicability,
@@ -326,6 +338,7 @@ class SQLiteMemoryEngine {
         version = excluded.version,
         lifecycle = excluded.lifecycle,
         quality_score = excluded.quality_score,
+        evidence_count = excluded.evidence_count,
         confidence = excluded.confidence,
         source = excluded.source,
         status = excluded.status,
@@ -335,7 +348,8 @@ class SQLiteMemoryEngine {
     this.findSkillsStmt = this.db.prepare(`
       SELECT skill_id AS skillId, title, applicability, method, boundaries, skill_type AS skillType,
              scenario_tags_json AS scenarioTagsJson, injection_budget AS injectionBudget, version, lifecycle,
-             quality_score AS qualityScore, success_count AS successCount, fail_count AS failCount,
+             quality_score AS qualityScore, evidence_count AS evidenceCount,
+             success_count AS successCount, fail_count AS failCount,
              confidence, source, status, created_at AS createdAt, updated_at AS updatedAt,
              last_used_at AS lastUsedAt, use_count AS useCount,
              (
@@ -355,12 +369,36 @@ class SQLiteMemoryEngine {
     this.listSkillsStmt = this.db.prepare(`
       SELECT skill_id AS skillId, title, applicability, method, boundaries, skill_type AS skillType,
              scenario_tags_json AS scenarioTagsJson, injection_budget AS injectionBudget, version, lifecycle,
-             quality_score AS qualityScore, success_count AS successCount, fail_count AS failCount,
+             quality_score AS qualityScore, evidence_count AS evidenceCount,
+             success_count AS successCount, fail_count AS failCount,
              confidence, source, status, created_at AS createdAt, updated_at AS updatedAt,
              last_used_at AS lastUsedAt, use_count AS useCount
       FROM skill_library
       ORDER BY updated_at DESC
       LIMIT ?
+    `);
+
+    this.getSkillByIdStmt = this.db.prepare(`
+      SELECT skill_id AS skillId, title, applicability, method, boundaries, skill_type AS skillType,
+             scenario_tags_json AS scenarioTagsJson, injection_budget AS injectionBudget, version, lifecycle,
+             quality_score AS qualityScore, evidence_count AS evidenceCount,
+             success_count AS successCount, fail_count AS failCount,
+             confidence, source, status, created_at AS createdAt, updated_at AS updatedAt,
+             last_used_at AS lastUsedAt, use_count AS useCount
+      FROM skill_library
+      WHERE skill_id = ?
+    `);
+
+    this.updateSkillLifecycleStmt = this.db.prepare(`
+      UPDATE skill_library
+      SET lifecycle = ?, updated_at = ?
+      WHERE skill_id = ?
+    `);
+
+    this.insertSkillLifecycleHistoryStmt = this.db.prepare(`
+      INSERT INTO skill_lifecycle_history
+      (skill_id, from_state, to_state, reason, created_at)
+      VALUES (?, ?, ?, ?, ?)
     `);
 
     this.touchSkillUsageStmt = this.db.prepare(`
@@ -372,6 +410,11 @@ class SQLiteMemoryEngine {
           fail_count = fail_count + ?,
           quality_score = MAX(0, MIN(1, (quality_score * 0.85) + (? * 0.15))),
           lifecycle = CASE
+            WHEN lifecycle = 'shadow'
+              AND (success_count + ?) >= 2
+              AND (use_count + 1) >= 3
+              AND ((quality_score * 0.85) + (? * 0.15)) >= 0.66
+            THEN 'active'
             WHEN lifecycle = 'active'
               AND (fail_count + ?) >= 3
               AND (use_count + 1) >= 5
@@ -393,6 +436,13 @@ class SQLiteMemoryEngine {
              model_provider AS modelProvider, model_name AS modelName,
              skill_ids_json AS skillIdsJson, reason
       FROM skill_usage_history
+      ORDER BY id DESC
+      LIMIT ?
+    `);
+
+    this.listSkillLifecycleHistoryStmt = this.db.prepare(`
+      SELECT created_at AS createdAt, skill_id AS skillId, from_state AS fromState, to_state AS toState, reason
+      FROM skill_lifecycle_history
       ORDER BY id DESC
       LIMIT ?
     `);
@@ -586,35 +636,59 @@ class SQLiteMemoryEngine {
     if (!skillId) return false;
     const now = skill.updatedAt || new Date().toISOString();
     const tags = normalizeSkillTags(skill.scenarioTags || skill.tags);
+    const existing = this.getSkillByIdStmt.get(skillId);
+    const baseLifecycle = String(skill.lifecycle || existing?.lifecycle || "candidate");
+    const evidenceCount =
+      Number(existing?.evidenceCount || 0) +
+      (String(skill.source || "model-extracted") === "model-extracted" ? 1 : 0);
+    const qualityScore = Number.isFinite(Number(skill.qualityScore))
+      ? Number(skill.qualityScore)
+      : Number(existing?.qualityScore || 0.5);
+    const lifecycle = resolveLifecycle({
+      existingLifecycle: baseLifecycle,
+      evidenceCount,
+      qualityScore,
+    });
+
     this.upsertSkillStmt.run(
       skillId,
-      String(skill.title || ""),
-      String(skill.applicability || ""),
-      String(skill.method || ""),
-      String(skill.boundaries || ""),
-      String(skill.skillType || "domain"),
+      String(skill.title || existing?.title || ""),
+      String(skill.applicability || existing?.applicability || ""),
+      String(skill.method || existing?.method || ""),
+      String(skill.boundaries || existing?.boundaries || ""),
+      String(skill.skillType || existing?.skillType || "domain"),
       JSON.stringify(tags),
-      Math.max(60, Math.min(480, Number(skill.injectionBudget || 180))),
-      Math.max(1, Number(skill.version || 1)),
-      String(skill.lifecycle || "active"),
-      Number.isFinite(Number(skill.qualityScore)) ? Number(skill.qualityScore) : 0.5,
-      Number.isFinite(Number(skill.confidence)) ? Number(skill.confidence) : 0.7,
-      String(skill.source || "model-extracted"),
-      String(skill.status || "published"),
-      String(skill.createdAt || now),
+      Math.max(60, Math.min(480, Number(skill.injectionBudget || existing?.injectionBudget || 180))),
+      Math.max(1, Number(skill.version || existing?.version || 1)),
+      lifecycle,
+      qualityScore,
+      evidenceCount,
+      Number.isFinite(Number(skill.confidence)) ? Number(skill.confidence) : Number(existing?.confidence || 0.7),
+      String(skill.source || existing?.source || "model-extracted"),
+      String(skill.status || existing?.status || "published"),
+      String(skill.createdAt || existing?.createdAt || now),
       now,
     );
+    if (existing?.lifecycle && existing.lifecycle !== lifecycle) {
+      this.insertSkillLifecycleHistoryStmt.run(
+        skillId,
+        existing.lifecycle,
+        lifecycle,
+        "auto-gate-transition",
+        now,
+      );
+    }
     return true;
   }
 
   recallSkills(text, limit = 3) {
     const q = String(text || "").trim();
-    const out = !q
-      ? this.listSkills(Math.max(1, Number(limit) || 3)).slice(0, Math.max(1, Number(limit) || 3))
-      : this.findSkillsStmt.all(q, q, q, q, Math.max(1, Number(limit) || 3));
+    if (!q) return [];
+    const out = this.findSkillsStmt.all(q, q, q, q, Math.max(1, Number(limit) || 3));
     return out.map((row) => ({
       ...row,
       scenarioTags: parseJson(row.scenarioTagsJson, []),
+      relevanceScore: Number(row.score || 0),
     }));
   }
 
@@ -625,16 +699,29 @@ class SQLiteMemoryEngine {
     const failInc = usage.pass === false ? 1 : 0;
     const responseScore = Number.isFinite(Number(usage.responseScore)) ? Number(usage.responseScore) : 0.5;
     for (const skillId of ids) {
+      const before = this.getSkillByIdStmt.get(skillId);
       this.touchSkillUsageStmt.run(
         createdAt,
         createdAt,
         passInc,
         failInc,
         responseScore,
+        passInc,
+        responseScore,
         failInc,
         responseScore,
         skillId,
       );
+      const after = this.getSkillByIdStmt.get(skillId);
+      if (before?.lifecycle && after?.lifecycle && before.lifecycle !== after.lifecycle) {
+        this.insertSkillLifecycleHistoryStmt.run(
+          skillId,
+          before.lifecycle,
+          after.lifecycle,
+          "usage-quality-transition",
+          createdAt,
+        );
+      }
     }
     this.insertSkillUsageStmt.run(
       String(usage.sessionId || ""),
@@ -661,6 +748,10 @@ class SQLiteMemoryEngine {
       ...row,
       skillIds: parseJson(row.skillIdsJson, []),
     }));
+  }
+
+  listSkillLifecycleHistory(limit = 60) {
+    return this.listSkillLifecycleHistoryStmt.all(Math.max(1, Number(limit) || 60));
   }
 
   close() {
@@ -692,6 +783,7 @@ class SQLiteMemoryEngine {
     add("version", "version INTEGER NOT NULL DEFAULT 1");
     add("lifecycle", "lifecycle TEXT NOT NULL DEFAULT 'active'");
     add("quality_score", "quality_score REAL NOT NULL DEFAULT 0.5");
+    add("evidence_count", "evidence_count INTEGER NOT NULL DEFAULT 0");
     add("success_count", "success_count INTEGER NOT NULL DEFAULT 0");
     add("fail_count", "fail_count INTEGER NOT NULL DEFAULT 0");
   }
@@ -723,6 +815,22 @@ function normalizeSkillTags(input) {
     .map((x) => x.trim())
     .filter(Boolean)
     .slice(0, 12);
+}
+
+function resolveLifecycle(input = {}) {
+  const current = String(input.existingLifecycle || "candidate");
+  const evidence = Number(input.evidenceCount || 0);
+  const quality = Number(input.qualityScore || 0);
+  if (current === "active" || current === "deprecated" || current === "archived") return current;
+  if (current === "shadow") {
+    if (quality >= 0.66 && evidence >= 3) return "active";
+    return "shadow";
+  }
+  if (current === "candidate") {
+    if (quality >= 0.55 && evidence >= 2) return "shadow";
+    return "candidate";
+  }
+  return "candidate";
 }
 
 module.exports = { SQLiteMemoryEngine };

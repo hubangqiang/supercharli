@@ -18,6 +18,7 @@ class InMemoryMemoryEngine {
     this.promptSkillHistory = [];
     this.skillLibrary = new Map();
     this.skillHistory = [];
+    this.skillLifecycleHistory = [];
   }
 
   readL1(sessionId) {
@@ -199,6 +200,13 @@ class InMemoryMemoryEngine {
     if (!skillId) return false;
     const now = skill.updatedAt || new Date().toISOString();
     const current = this.skillLibrary.get(skillId) || {};
+    const evidenceCount = Number(current.evidenceCount || 0) + (String(skill.source || "model-extracted") === "model-extracted" ? 1 : 0);
+    const qualityScore = Number(skill.qualityScore ?? current.qualityScore ?? 0.5);
+    const lifecycle = resolveLifecycle({
+      existingLifecycle: String(skill.lifecycle || current.lifecycle || "candidate"),
+      evidenceCount,
+      qualityScore,
+    });
     this.skillLibrary.set(skillId, {
       skillId,
       title: String(skill.title || current.title || ""),
@@ -209,8 +217,9 @@ class InMemoryMemoryEngine {
       scenarioTags: normalizeSkillTags(skill.scenarioTags || skill.tags || current.scenarioTags || []),
       injectionBudget: Math.max(60, Math.min(480, Number(skill.injectionBudget ?? current.injectionBudget ?? 180))),
       version: Math.max(1, Number(skill.version ?? current.version ?? 1)),
-      lifecycle: String(skill.lifecycle || current.lifecycle || "active"),
-      qualityScore: Number(skill.qualityScore ?? current.qualityScore ?? 0.5),
+      lifecycle,
+      qualityScore,
+      evidenceCount,
       successCount: Number(skill.successCount ?? current.successCount ?? 0),
       failCount: Number(skill.failCount ?? current.failCount ?? 0),
       confidence: Number(skill.confidence ?? current.confidence ?? 0.7),
@@ -221,11 +230,22 @@ class InMemoryMemoryEngine {
       lastUsedAt: current.lastUsedAt || null,
       useCount: Number(current.useCount || 0),
     });
+    if (current.lifecycle && current.lifecycle !== lifecycle) {
+      this.skillLifecycleHistory.push({
+        createdAt: now,
+        skillId,
+        fromState: current.lifecycle,
+        toState: lifecycle,
+        reason: "auto-gate-transition",
+      });
+      this.skillLifecycleHistory = this.skillLifecycleHistory.slice(-300);
+    }
     return true;
   }
 
   recallSkills(text, limit = 3) {
     const q = String(text || "").toLowerCase();
+    if (!q) return [];
     const rows = Array.from(this.skillLibrary.values()).filter((x) => x.status === "published" && x.lifecycle === "active");
     const scored = rows
       .map((x) => {
@@ -237,7 +257,7 @@ class InMemoryMemoryEngine {
         return { ...x, _score: score };
       })
       .sort((a, b) => b._score - a._score || String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
-    return scored.slice(0, Math.max(1, Number(limit) || 3)).map(({ _score, ...x }) => x);
+    return scored.slice(0, Math.max(1, Number(limit) || 3)).map(({ _score, ...x }) => ({ ...x, relevanceScore: _score }));
   }
 
   recordSkillUsage(usage = {}) {
@@ -256,8 +276,21 @@ class InMemoryMemoryEngine {
       row.successCount = Number(row.successCount || 0) + (pass ? 1 : 0);
       row.failCount = Number(row.failCount || 0) + (fail ? 1 : 0);
       row.qualityScore = Math.max(0, Math.min(1, (Number(row.qualityScore || 0.5) * 0.85) + (responseScore * 0.15)));
-      if (row.lifecycle === "active" && row.useCount >= 5 && row.failCount >= 3 && row.qualityScore < 0.42) {
+      const beforeLifecycle = row.lifecycle;
+      if (row.lifecycle === "shadow" && row.useCount >= 3 && row.successCount >= 2 && row.qualityScore >= 0.66) {
+        row.lifecycle = "active";
+      } else if (row.lifecycle === "active" && row.useCount >= 5 && row.failCount >= 3 && row.qualityScore < 0.42) {
         row.lifecycle = "shadow";
+      }
+      if (beforeLifecycle !== row.lifecycle) {
+        this.skillLifecycleHistory.push({
+          createdAt,
+          skillId,
+          fromState: beforeLifecycle,
+          toState: row.lifecycle,
+          reason: "usage-quality-transition",
+        });
+        this.skillLifecycleHistory = this.skillLifecycleHistory.slice(-300);
       }
       this.skillLibrary.set(skillId, row);
     }
@@ -283,6 +316,10 @@ class InMemoryMemoryEngine {
 
   listSkillHistory(limit = 60) {
     return this.skillHistory.slice(-Math.max(1, Number(limit) || 60)).reverse();
+  }
+
+  listSkillLifecycleHistory(limit = 60) {
+    return this.skillLifecycleHistory.slice(-Math.max(1, Number(limit) || 60)).reverse();
   }
 }
 
@@ -321,6 +358,22 @@ function normalizeSkillTags(input) {
     .map((x) => x.trim())
     .filter(Boolean)
     .slice(0, 12);
+}
+
+function resolveLifecycle(input = {}) {
+  const current = String(input.existingLifecycle || "candidate");
+  const evidence = Number(input.evidenceCount || 0);
+  const quality = Number(input.qualityScore || 0);
+  if (current === "active" || current === "deprecated" || current === "archived") return current;
+  if (current === "shadow") {
+    if (quality >= 0.66 && evidence >= 3) return "active";
+    return "shadow";
+  }
+  if (current === "candidate") {
+    if (quality >= 0.55 && evidence >= 2) return "shadow";
+    return "candidate";
+  }
+  return "candidate";
 }
 
 function clampRecallLimit(limit) {

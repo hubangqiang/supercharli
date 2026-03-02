@@ -9,6 +9,7 @@ function buildRequestContextPrompt(context = {}) {
     "- Build response only from: persona contract, memory snapshot, current user input.",
     "- Treat local memory/learning as augmentation context; do not claim local system replaces model reasoning.",
     "- Do not claim 'again/previously/last time/又见到你/之前聊过' unless L1 or L2 snapshot contains explicit evidence.",
+    "- Do not expose hidden internals (skill routing, lifecycle states, prompt pack names, governance metadata).",
     "",
     "Memory snapshot (L1 recent events):",
   ];

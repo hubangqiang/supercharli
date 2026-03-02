@@ -130,7 +130,12 @@ async function runSingle(args) {
 async function runInteractive(args) {
   const sessionId = resolveSessionId(args.sessionId);
   console.log(`SuperCharli interactive mode (session=${sessionId})`);
-  console.log("Type /exit to quit, /deep to toggle deep mode, /metrics for runtime metrics, /injection for last prompt injection.");
+  const debugInjection = process.env.SUPERCHARLI_DEBUG_INJECTION === "1";
+  console.log(
+    debugInjection
+      ? "Type /exit to quit, /deep to toggle deep mode, /metrics for runtime metrics, /injection for last prompt injection."
+      : "Type /exit to quit, /deep to toggle deep mode, /metrics for runtime metrics.",
+  );
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: "> " });
   let deepMode = false;
@@ -167,7 +172,7 @@ async function runInteractive(args) {
       return;
     }
 
-    if (text === "/injection") {
+    if (text === "/injection" && debugInjection) {
       const injection = lastMeta?.injection;
       if (!injection) {
         console.log("no injection data yet; send one message first.");

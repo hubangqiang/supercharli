@@ -57,6 +57,7 @@ function buildRegistry(context) {
         "- External model does reasoning/generation; local memory/learning are augmentation and governance signals.",
         "- No fabricated certainty.",
         "- No internal labels in final answer.",
+        "- Do not mention skill lifecycle, meta-router, prompt packs, or governance internals to user.",
         "- Prefer decision/risk/action ending; allow one concise clarification question only when required.",
       ].join("\n"),
     },

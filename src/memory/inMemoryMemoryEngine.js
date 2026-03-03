@@ -19,6 +19,7 @@ class InMemoryMemoryEngine {
     this.skillLibrary = new Map();
     this.skillHistory = [];
     this.skillLifecycleHistory = [];
+    this.skillProcessTrace = [];
     this._ensureSystemMetaSkills();
   }
 
@@ -321,6 +322,25 @@ class InMemoryMemoryEngine {
 
   listSkillLifecycleHistory(limit = 60) {
     return this.skillLifecycleHistory.slice(-Math.max(1, Number(limit) || 60)).reverse();
+  }
+
+  recordSkillProcessEvent(event = {}) {
+    this.skillProcessTrace.push({
+      createdAt: String(event.createdAt || new Date().toISOString()),
+      sessionId: String(event.sessionId || ""),
+      traceId: String(event.traceId || ""),
+      phase: String(event.phase || "unknown"),
+      route: String(event.route || ""),
+      modelProvider: String(event.modelProvider || ""),
+      modelName: String(event.modelName || ""),
+      data: event.data && typeof event.data === "object" ? event.data : {},
+    });
+    this.skillProcessTrace = this.skillProcessTrace.slice(-400);
+    return true;
+  }
+
+  listSkillProcessTrace(limit = 120) {
+    return this.skillProcessTrace.slice(-Math.max(1, Number(limit) || 120)).reverse();
   }
 
   _ensureSystemMetaSkills() {

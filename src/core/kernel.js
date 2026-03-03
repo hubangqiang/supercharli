@@ -79,6 +79,23 @@ class Kernel {
       selectedCount: selectedSkills.skills.length,
       reason: selectedSkills.reason || "",
     });
+    if (this.memory && typeof this.memory.recordSkillProcessEvent === "function") {
+      this.memory.recordSkillProcessEvent({
+        createdAt: new Date().toISOString(),
+        sessionId: input.sessionId,
+        traceId,
+        phase: "skill-routing",
+        route: route.route,
+        modelProvider: route.model.provider,
+        modelName: route.model.model,
+        data: {
+          mode: selectedSkills.mode,
+          candidateCount: selectedSkills.candidateCount,
+          selectedSkillIds: selectedSkills.skills.map((x) => x.skillId || x.id).filter(Boolean),
+          reason: selectedSkills.reason || "",
+        },
+      });
+    }
 
     const learningSnapshot =
       this.learner && typeof this.learner.snapshot === "function" ? this.learner.snapshot() : null;
@@ -278,6 +295,24 @@ class Kernel {
     const loadedPacks = Array.isArray(generation.result?.promptMeta?.loadedPacks)
       ? generation.result.promptMeta.loadedPacks
       : [];
+    if (this.memory && typeof this.memory.recordSkillProcessEvent === "function") {
+      this.memory.recordSkillProcessEvent({
+        createdAt: new Date().toISOString(),
+        sessionId: input.sessionId,
+        traceId,
+        phase: "skill-injection",
+        route: route.route,
+        modelProvider: generation.result.provider,
+        modelName: generation.result.model,
+        data: {
+          promptTokensUsed: generation.result?.promptMeta?.usedTokens || 0,
+          droppedPacks: generation.result?.promptMeta?.droppedPacks || 0,
+          loadedPackIds: generation.result?.promptMeta?.loadedPackIds || [],
+          loadedSkillCount: loadedPacks.length,
+          appliedSkillIds: selectedSkills.skills.map((x) => x.skillId || x.id).filter(Boolean),
+        },
+      });
+    }
     if (this.memory && typeof this.memory.recordPromptSkills === "function") {
       this.memory.recordPromptSkills({
         createdAt: new Date().toISOString(),
@@ -304,6 +339,23 @@ class Kernel {
         responseScore: quality.score,
         pass: quality.pass,
       });
+      if (this.memory && typeof this.memory.recordSkillProcessEvent === "function") {
+        this.memory.recordSkillProcessEvent({
+          createdAt: new Date().toISOString(),
+          sessionId: input.sessionId,
+          traceId,
+          phase: "skill-usage-eval",
+          route: route.route,
+          modelProvider: generation.result.provider,
+          modelName: generation.result.model,
+          data: {
+            responseScore: quality.score,
+            qualityPass: quality.pass,
+            qualityIssues: quality.issues || [],
+            usedSkillIds: selectedSkills.skills.map((x) => x.skillId || x.id).filter(Boolean),
+          },
+        });
+      }
     }
 
     return {

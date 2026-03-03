@@ -144,6 +144,18 @@ class SQLiteMemoryEngine {
         reason TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS skill_process_trace (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        trace_id TEXT NOT NULL,
+        phase TEXT NOT NULL,
+        route TEXT NOT NULL,
+        model_provider TEXT NOT NULL,
+        model_name TEXT NOT NULL,
+        data_json TEXT NOT NULL
+      );
     `);
     this._ensureL2Columns();
     this._ensureSkillColumns();
@@ -160,6 +172,9 @@ class SQLiteMemoryEngine {
       CREATE INDEX IF NOT EXISTS idx_skill_usage_session ON skill_usage_history(session_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_skill_lifecycle_history_created ON skill_lifecycle_history(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_skill_lifecycle_history_skill ON skill_lifecycle_history(skill_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_skill_process_trace_created ON skill_process_trace(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_skill_process_trace_session ON skill_process_trace(session_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_skill_process_trace_trace ON skill_process_trace(trace_id, created_at DESC);
     `);
 
     this.readL1Stmt = this.db.prepare(`
@@ -443,6 +458,20 @@ class SQLiteMemoryEngine {
     this.listSkillLifecycleHistoryStmt = this.db.prepare(`
       SELECT created_at AS createdAt, skill_id AS skillId, from_state AS fromState, to_state AS toState, reason
       FROM skill_lifecycle_history
+      ORDER BY id DESC
+      LIMIT ?
+    `);
+
+    this.insertSkillProcessTraceStmt = this.db.prepare(`
+      INSERT INTO skill_process_trace
+      (created_at, session_id, trace_id, phase, route, model_provider, model_name, data_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    this.listSkillProcessTraceStmt = this.db.prepare(`
+      SELECT created_at AS createdAt, session_id AS sessionId, trace_id AS traceId, phase, route,
+             model_provider AS modelProvider, model_name AS modelName, data_json AS dataJson
+      FROM skill_process_trace
       ORDER BY id DESC
       LIMIT ?
     `);
@@ -754,6 +783,28 @@ class SQLiteMemoryEngine {
 
   listSkillLifecycleHistory(limit = 60) {
     return this.listSkillLifecycleHistoryStmt.all(Math.max(1, Number(limit) || 60));
+  }
+
+  recordSkillProcessEvent(event = {}) {
+    this.insertSkillProcessTraceStmt.run(
+      String(event.createdAt || new Date().toISOString()),
+      String(event.sessionId || ""),
+      String(event.traceId || ""),
+      String(event.phase || "unknown"),
+      String(event.route || ""),
+      String(event.modelProvider || ""),
+      String(event.modelName || ""),
+      JSON.stringify(event.data || {}),
+    );
+    return true;
+  }
+
+  listSkillProcessTrace(limit = 120) {
+    const rows = this.listSkillProcessTraceStmt.all(Math.max(1, Number(limit) || 120));
+    return rows.map((row) => ({
+      ...row,
+      data: parseJson(row.dataJson, {}),
+    }));
   }
 
   close() {

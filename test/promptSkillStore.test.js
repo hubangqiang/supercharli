@@ -70,6 +70,19 @@ function run() {
   });
   const skillHistory = engine.listSkillHistory(10);
   assert.ok(skillHistory.length >= 1, "skill usage history should be persisted");
+  engine.recordSkillProcessEvent({
+    createdAt: "2026-03-01T00:02:00.000Z",
+    sessionId: "main",
+    traceId: "trace-3",
+    phase: "skill-routing",
+    route: "deep",
+    modelProvider: "anthropicrelay",
+    modelName: "claude-sonnet-4",
+    data: { selectedSkillIds: ["testcase-3part"] },
+  });
+  const traceRows = engine.listSkillProcessTrace(10);
+  assert.ok(traceRows.length >= 1, "skill process trace should be persisted");
+  assert.strictEqual(traceRows[0].phase, "skill-routing", "latest trace phase should be returned");
   const skills = engine.listSkills(10);
   assert.ok(skills.some((x) => x.skillId === "skill-extractor"), "system meta skill skill-extractor should be managed");
   assert.ok(skills.some((x) => x.skillId === "skill-router"), "system meta skill skill-router should be managed");

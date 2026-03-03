@@ -17,6 +17,14 @@ class Kernel {
   async runTurn(input) {
     const traceId = crypto.randomUUID();
     const started = Date.now();
+    recordTimelineEvent(this.memory, {
+      sessionId: input.sessionId,
+      traceId,
+      phase: "user-message",
+      data: {
+        text: clipText(input.text, 4000),
+      },
+    });
     this.telemetry.log({ stage: "ingest", traceId, sessionId: input.sessionId });
     const focusMode = isWorkFocusRequest(input.text);
 
@@ -79,6 +87,19 @@ class Kernel {
       selectedCount: selectedSkills.skills.length,
       reason: selectedSkills.reason || "",
     });
+    if (Array.isArray(selectedSkills.debugEvents)) {
+      for (const ev of selectedSkills.debugEvents) {
+        recordTimelineEvent(this.memory, {
+          sessionId: input.sessionId,
+          traceId,
+          phase: ev.phase,
+          route: route.route,
+          modelProvider: route.model.provider,
+          modelName: route.model.model,
+          data: ev.data,
+        });
+      }
+    }
     if (this.memory && typeof this.memory.recordSkillProcessEvent === "function") {
       this.memory.recordSkillProcessEvent({
         createdAt: new Date().toISOString(),
@@ -357,6 +378,19 @@ class Kernel {
         });
       }
     }
+    recordTimelineEvent(this.memory, {
+      sessionId: input.sessionId,
+      traceId,
+      phase: "assistant-message",
+      route: route.route,
+      modelProvider: generation.result.provider,
+      modelName: generation.result.model,
+      data: {
+        text: clipText(response?.conclusion || "", 6000),
+        qualityScore: quality.score,
+        qualityPass: quality.pass,
+      },
+    });
 
     return {
       response,
@@ -560,17 +594,36 @@ async function extractModelSkillAsset(router, modelRef, userText, assistantText)
 async function selectSkillsForTurn({ memory, router, modelRef, userText, maxSelected = 2 }) {
   const fallback = () => {
     const direct = memory && typeof memory.recallSkills === "function" ? memory.recallSkills(userText, maxSelected) : [];
+    const filtered = (Array.isArray(direct) ? direct : []).filter((x) => Number(x.relevanceScore || 0) >= 0.35);
     return {
-      skills: (Array.isArray(direct) ? direct : []).filter((x) => Number(x.relevanceScore || 0) >= 0.35),
+      skills: filtered,
       mode: "local-fallback",
       candidateCount: (Array.isArray(direct) ? direct.length : 0),
       reason: "keyword-recall",
+      debugEvents: [
+        {
+          phase: "internal-skill-fallback",
+          data: {
+            query: clipText(userText, 1200),
+            candidateCount: (Array.isArray(direct) ? direct.length : 0),
+            selectedSkillIds: filtered.map((x) => x.skillId || x.id).filter(Boolean),
+          },
+        },
+      ],
     };
   };
   if (!memory || typeof memory.listSkills !== "function") return fallback();
 
   const candidates = memory.listSkills(12).filter((x) => x.status === "published" && String(x.lifecycle || "active") === "active");
-  if (!candidates.length) return { skills: [], mode: "none", candidateCount: 0, reason: "empty-library" };
+  if (!candidates.length) {
+    return {
+      skills: [],
+      mode: "none",
+      candidateCount: 0,
+      reason: "empty-library",
+      debugEvents: [{ phase: "internal-skill-router-skipped", data: { reason: "empty-library" } }],
+    };
+  }
   if (!isExternalModelRef(modelRef)) return fallback();
   if (!router || typeof router.generate !== "function") return fallback();
 
@@ -589,6 +642,16 @@ async function selectSkillsForTurn({ memory, router, modelRef, userText, maxSele
   ].join("\n");
 
   try {
+    const debugEvents = [
+      {
+        phase: "internal-skill-router-request",
+        data: {
+          protocol: "[internal][skill][query]",
+          prompt: clipText(prompt, 6000),
+          candidateCount: candidates.length,
+        },
+      },
+    ];
     const out = await router.generate(modelRef, {
       text: prompt,
       l1: [],
@@ -598,19 +661,61 @@ async function selectSkillsForTurn({ memory, router, modelRef, userText, maxSele
       extractorMode: true,
     });
     const parsed = parseMetaSkillRouteJson(out?.content || "");
-    if (!parsed) return fallback();
+    debugEvents.push({
+      phase: "internal-skill-router-response",
+      data: {
+        protocol: "[internal][skill][result]",
+        raw: clipText(String(out?.content || ""), 3000),
+        parsed,
+      },
+    });
+    if (!parsed) {
+      const fb = fallback();
+      return { ...fb, debugEvents: debugEvents.concat(fb.debugEvents || []) };
+    }
     const selectedIds = new Set(parsed.selectedSkillIds.slice(0, Math.max(1, maxSelected)).map((x) => String(x || "").trim()).filter(Boolean));
     const selected = candidates.filter((x) => selectedIds.has(String(x.skillId || "")));
-    if (!selected.length) return fallback();
+    if (!selected.length) {
+      const fb = fallback();
+      return { ...fb, debugEvents: debugEvents.concat(fb.debugEvents || []) };
+    }
+    debugEvents.push({
+      phase: "internal-skill-load",
+      data: {
+        protocol: "[internal][skill][load]",
+        selectedSkillIds: selected.map((x) => x.skillId || x.id).filter(Boolean),
+      },
+    });
     return {
       skills: selected.slice(0, Math.max(1, maxSelected)),
       mode: "model-meta-router",
       candidateCount: candidates.length,
       reason: parsed.reason || "",
+      debugEvents,
     };
   } catch {
     return fallback();
   }
+}
+
+function recordTimelineEvent(memory, event = {}) {
+  if (!memory || typeof memory.recordSkillProcessEvent !== "function") return;
+  memory.recordSkillProcessEvent({
+    createdAt: new Date().toISOString(),
+    sessionId: event.sessionId || "",
+    traceId: event.traceId || "",
+    phase: event.phase || "unknown",
+    route: event.route || "",
+    modelProvider: event.modelProvider || "",
+    modelName: event.modelName || "",
+    data: event.data || {},
+  });
+}
+
+function clipText(text, maxLen = 2000) {
+  const s = String(text || "");
+  if (s.length <= maxLen) return s;
+  return `${s.slice(0, maxLen)}...(truncated)`;
 }
 
 function parseLearningSignalJson(text) {

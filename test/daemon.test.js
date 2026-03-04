@@ -45,6 +45,11 @@ async function run() {
   assert.strictEqual(ping.ok, true);
   assert.strictEqual(ping.data.type, "pong");
 
+  const init = await send(socketPath, { type: "session-init", sessionId: "d1" });
+  assert.strictEqual(init.ok, true);
+  assert.strictEqual(init.data.type, "session-init");
+  assert.ok(Array.isArray(init.data.loadedSkillIds));
+
   const chat = await send(socketPath, { type: "chat", sessionId: "d1", text: "你好" });
   assert.strictEqual(chat.ok, true);
   assert.strictEqual(chat.data.type, "chat");

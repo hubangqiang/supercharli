@@ -102,6 +102,44 @@ async function handleRequest(message, kernel, telemetry, env) {
     return { type: "pong", ts: new Date().toISOString() };
   }
 
+  if (type === "session-init") {
+    if (!message.sessionId) {
+      throw new Error("sessionId_required");
+    }
+    const memory = kernel && kernel.memory ? kernel.memory : null;
+    const allSkills = memory && typeof memory.listSkills === "function" ? memory.listSkills(200) : [];
+    const bootstrapSkills = allSkills
+      .filter((x) => String(x.status || "published") === "published")
+      .filter((x) => String(x.lifecycle || "active") === "active")
+      .filter((x) => String(x.skillType || "domain") === "meta")
+      .map((x) => String(x.skillId || "").trim())
+      .filter(Boolean);
+    const selectedBootstrap = bootstrapSkills.filter((id) => id === "skill-router" || id === "skill-extractor");
+    const loadedBootstrap = selectedBootstrap.length ? selectedBootstrap : bootstrapSkills.slice(0, 2);
+    if (memory && typeof memory.recordSkillProcessEvent === "function") {
+      memory.recordSkillProcessEvent({
+        createdAt: new Date().toISOString(),
+        sessionId: message.sessionId,
+        traceId: `session-init:${message.sessionId}`,
+        phase: "session-bootstrap",
+        route: "",
+        modelProvider: "",
+        modelName: "",
+        data: {
+          protocol: "[internal][skill][bootstrap]",
+          note: "session created; default skill routing bootstrap is ready",
+          loadedSkillIds: loadedBootstrap,
+        },
+      });
+    }
+    return {
+      type: "session-init",
+      sessionId: message.sessionId,
+      loadedSkillIds: loadedBootstrap,
+      ts: new Date().toISOString(),
+    };
+  }
+
   if (type === "chat") {
     if (!message.text || !message.sessionId) {
       throw new Error("sessionId_and_text_required");

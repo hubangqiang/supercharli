@@ -129,6 +129,7 @@ async function runSingle(args) {
 
 async function runInteractive(args) {
   const sessionId = resolveSessionId(args.sessionId);
+  await ensureSessionBootstrap(sessionId);
   console.log(`SuperCharli interactive mode (session=${sessionId})`);
   const debugInjection = process.env.SUPERCHARLI_DEBUG_INJECTION === "1";
   console.log(
@@ -228,11 +229,26 @@ async function main() {
   }
 
   if (args.text || args.mode === "metrics") {
+    if (args.text) {
+      await ensureSessionBootstrap(resolveSessionId(args.sessionId));
+    }
     await runSingle(args);
     return;
   }
 
   await runInteractive(args);
+}
+
+async function ensureSessionBootstrap(sessionId) {
+  if (!sessionId) return;
+  try {
+    await sendRequest({
+      type: "session-init",
+      sessionId,
+    });
+  } catch {
+    // keep backward compatibility if daemon has not been upgraded yet
+  }
 }
 
 main().catch((err) => {
